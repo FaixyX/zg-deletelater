@@ -11,4 +11,5 @@ These apply whenever you look at other websites for inspiration.
 - If a site blocks automated access, skip it. Do not work around the block. Do not disable TLS certificate checks to get past an error.
 - Keep the number of pages visited modest, and record sources and their limits in `docs/inspiration.md`.
 - Typefaces must be free for commercial web use unless the client confirms a licence.
+- To look at sites from this sandbox's headless browser, use `scripts/capture-inspiration.mjs`. It fetches each request in Node, which verifies TLS against the environment CA bundle (`NODE_EXTRA_CA_CERTS`), and hands the response to Chromium. Never pass `ignoreHTTPSErrors` or certificate-bypass flags.
 
