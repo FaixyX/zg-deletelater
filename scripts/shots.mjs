@@ -5,8 +5,9 @@
  * Needs a production build (`npm run build`). Starts `next start` itself on
  * SHOTS_PORT (default 3200) unless SHOTS_URL points at a server that is
  * already running. Writes to screenshots/directions/ (gitignored): for each
- * direction, the fold and the full page at 1440x900 and 390x844, plus the
- * fold again with prefers-reduced-motion. A page is "ready" when it sets
+ * direction, the fold and a scroll sequence (a frame every ~70% of a screen,
+ * driven by real wheel events) at 1440x900 and 390x844, plus the fold with
+ * prefers-reduced-motion. A page is "ready" when it sets
  * <html data-ready>; the script waits for that, so animations have settled.
  *
  * Browser: the preinstalled Chromium if present (PLAYWRIGHT_BROWSERS_PATH or
@@ -20,7 +21,7 @@ const PORT = process.env.SHOTS_PORT ?? "3200";
 const BASE = process.env.SHOTS_URL ?? `http://localhost:${PORT}`;
 const OUT = "screenshots/directions";
 const only = process.argv.slice(2);
-const DIRECTIONS = ["a", "b", "c"].filter((d) => only.length === 0 || only.includes(d));
+const DIRECTIONS = ["run", "ledger", "atlas"].filter((d) => only.length === 0 || only.includes(d));
 const SIZES = [
   { name: "desktop", width: 1440, height: 900 },
   { name: "mobile", width: 390, height: 844 },
@@ -69,15 +70,21 @@ try {
         const tag = `${dir}-${size.name}${reduced ? "-reduced" : ""}`;
         await page.screenshot({ path: `${OUT}/${tag}-fold.png` });
         if (!reduced) {
-          // Scroll through once so scroll-driven moments fire, then back to the top.
+          // Scroll sequence: real wheel steps through the page (so smooth
+          // scroll and scrubbed timelines respond as they would for a person),
+          // a frame every ~70% of a screen.
           const h = await page.evaluate(() => document.documentElement.scrollHeight);
-          for (let y = 0; y < h; y += size.height * 0.6) {
-            await page.evaluate((v) => window.scrollTo(0, v), y);
-            await page.waitForTimeout(250);
+          const step = Math.round(size.height * 0.7);
+          let n = 0;
+          for (let y = 0; y < h - size.height && n < 24; y += step) {
+            for (let k = 0; k < 5; k++) {
+              await page.mouse.wheel(0, step / 5);
+              await page.waitForTimeout(60);
+            }
+            await page.waitForTimeout(1100);
+            n += 1;
+            await page.screenshot({ path: `${OUT}/${tag}-s${String(n).padStart(2, "0")}.png` });
           }
-          await page.evaluate(() => window.scrollTo(0, 0));
-          await page.waitForTimeout(300);
-          await page.screenshot({ path: `${OUT}/${tag}-full.png`, fullPage: true });
         }
         console.log(`shot ${tag}`);
         await ctx.close();

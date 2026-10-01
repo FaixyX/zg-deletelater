@@ -1,5 +1,9 @@
 # Design: Contract Ledger
 
+> **Status: on hold.** This records the round-1 pick. The client asked for a redo with motion and
+> scroll-based response; round 2 is in `docs/directions.md` (The Run, Ledger in Motion, Cobalt Atlas) and
+> this file, and the motion tokens in `src/lib/motion.ts`, will be rewritten from whichever is picked.
+
 Chosen direction (A) from `docs/directions.md`. Product truth lives in `PRODUCT.md`. This file records the
 visual system for the redesign. The old dark-navy, all-mono, glowing dot-map site is an anti-reference.
 

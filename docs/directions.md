@@ -1,156 +1,204 @@
-# Three design directions
+# Three design directions — round 2
 
-Inputs: [PRODUCT.md](../PRODUCT.md), [audit](audit.md), [inspiration](inspiration.md).
+Round 1 (the static Contract Ledger, Motorway Gantry and Survey Atlas) is superseded. You asked for motion
+design, scroll-based response and a premium feel, grounded in real research. All three directions below are
+built and scroll-driven at `/lab/directions`.
 
-**Brief in one breath.** Mill owners deciding on a contract should believe within ten seconds that Zia Goods
-has hauled for twenty years, nationwide. It should feel reputable, honouring contracts, and growing. It must never feel
-careless about detail. The palette is generated around blue and cream-white. The ZG mark and the motto (Roman Urdu and
-Urdu script) are fixed. The old site (dark navy, all-mono, glowing dot-map, glass pills, preloader) is an anti-reference.
+**Inputs:**
+- [PRODUCT.md](../PRODUCT.md)
+- [audit](audit.md)
+- [inspiration, round 2](inspiration.md): nine sites, captured and scrolled in a real browser
 
-**Shared rules for all three.**
-- Contrast ratios below are WCAG, computed from the hex values. Body text is at least 4.5:1, and decorative rules and strokes are marked.
-- All typefaces are SIL OFL, self-hosted by `next/font/google`: free for commercial web use.
-- Motto: *Dekh magar pyar se* in the display face, and دیکھ مگر پیار سے in Noto Nastaliq Urdu (OFL) with generous line-height.
-- Amber appears only where the ZG mark already carries it, as a small accent, never as a glow.
-- Copy is the real copy, with no invented claims: 22 tankers, 20 years, 14 highways, 8 corridors; Karachi to Lahore is
-  M-9, N-5, M-5, M-4, M-3. The Lahore distance is the old site's ≈1,215 km, **unverified with M-4**, and is not shown as a fact in the lab.
-- No photographs, because none exist yet.
-- Reduced motion shows the finished state of every moment.
-
-**How to read the departures.** "Old site" means the dark-navy, mono, dot-map build. Reference numbers
-refer to [inspiration.md](inspiration.md).
-
----
-
-## A. Contract Ledger (cream-led, editorial)
-
-**Idea.** Zia Goods' product is a contract kept. The page is built like the paperwork the trade runs on: a
-waybill, a weighing slip, a seal number. Cream paper, ink-blue type, and thin ruled lines. It is the opposite of a
-glowing interface: it looks like something that has been signed.
-
-| Colour | Hex | Role | Contrast |
-|---|---|---|---|
-| Paper | `#F5EEDF` | ground | n/a |
-| Ink | `#0C2467` | text, rules | 12.4:1 on paper |
-| Deep ink | `#071544` | footer, stamp ground | paper on deep 15.2:1 |
-| Stamp blue | `#2146C7` | links, the stamp, key figures | 6.6:1 on paper |
-| Rule | `#B9C4E4` | hairlines (decorative only) | 1.5:1, never text |
-| Seal | `#B8791A` | the logo's amber, one seal dot | 3.1:1, graphic only |
-
-**Type.** Newsreader (display, text, optical sizes) with Public Sans (UI and body), and IBM Plex Mono at 12–13px
-for slip data only (seal numbers, route codes). Scale at a 1.25 ratio from 17px body: 17 / 21 / 27 / 34 / 42 / clamp(56, 8vw, 112) for the hero line.
-Newsreader italic carries the motto.
-
-**Layout.** A single wide column of "form" with a ruled left margin of small slip data (clause numbers that are real:
-cargo 1–5). The hero is one huge serif line over a waybill-style header strip (consignor, consignee, route, seal
-no.). The cargo section is a ledger: five ruled rows, each with name, a line of real copy, three specs. No cards.
-
-**Signature motion.** On load, the headline settles and a round **seal stamp** ("20 YEARS · NATIONWIDE") presses
-onto the slip with a short, weighted drop (scale 1.08 to 1 with a slight rotation, `cubic-bezier(.2,.8,.2,1)`, 380ms)
-and the ledger rules draw left to right. **Overall motion:** almost none: still paper, a few 320–420ms settles, hover
-as an underline that inks in. No bounce, no scroll-jacking.
-
-**Informed by.** [1] United Carriers: layered proof order. [2] FMI: understatement and age as a claim. [5] Wembi:
-numbered structure, used as real clauses. **Departs by** using paper and serif where all three use light-on-dark
-sans, and by making the document metaphor the identity instead of stock photography.
-
-**AI-default check.** No Inter, no purple gradient, no card grid, no icon tiles, no glow, no pure black or grey (all
-neutrals are tinted toward the blue), no bounce easing. The "numbered eyebrow" habit is replaced by clause numbers that
-mean something. **Breaks hardest from the old site.**
+**Shared ground rules:**
+- **Real material only.** The route is the actual OSM and GADM geometry. Port Qasim → Hyderabad → Sukkur → Multan
+  → Faisalabad → Lahore is stitched by `scripts/build-lab-route.py` from M-9, N-5, M-5, M-4 and M-3. The figures
+  are the confirmed 22 / 20 / 14 / 8. The cargo copy is the existing copy. No distances or claims are invented.
+- **Motion stack:**
+  - GSAP 3.15: ScrollTrigger, SplitText, DrawSVG, MotionPath.
+  - Lenis smooth scroll, driven from GSAP's ticker per the GSAP MCP server's pattern.
+  - `useGSAP` for cleanup, `matchMedia` for reduced motion. ScrollTriggers sit only on top-level timelines.
+  - Validated with the GSAP server.
+- **Reduced motion** gets a complete still page in every direction: no pins, no scrubs, everything at its finished
+  state.
+- **Contact:** both contact paths ("Request capacity", "Call or WhatsApp") have equal weight. The motto appears in
+  Roman Urdu and Nastaliq.
+- **Typefaces** are all SIL OFL, self-hosted by `next/font`.
+- **Contrast:** WCAG ratios are computed from the hex values. Every text pair is at least 5:1.
 
 ---
 
-## B. Motorway Gantry (blue-led, wayfinding)
+## 1. The Run: `/lab/directions/run`
 
-**Idea.** Zia Goods lives on named roads, and Pakistani drivers read those roads from overhead signs. The page is
-a gantry: cream sign panels hung on a cobalt field, route numbers as the biggest type, cities as exits. It is
-wayfinding, so it is instantly legible, and nobody could say it "looks like a template".
+**Idea.** Scroll is the throttle. A drawn Zia Goods tanker drives Port Qasim to Lahore, leg by leg, and the page
+streams past it.
+
+**Hero.** "TWENTY YEARS." / "NATIONWIDE." in very large condensed type, with the second line in outline. The tanker
+rolls in from the left on load with its wheels turning, and settles on the road.
+
+**Signature: the drive** (pinned over about five screens, scrubbed):
+- The road, its lane dashes and the roadside posts stream past the tanker at different speeds (parallax), and the
+  wheels turn with the scroll.
+- At each leg a **gantry sign** passes overhead: M-9 to Hyderabad, N-5 to Sukkur, M-5 to Multan, M-4 to
+  Faisalabad, M-3 to Lahore.
+- A **leg readout** (Leg 02 / 05 · N-5 · Hyderabad → Sukkur) and a five-segment progress bar track the trip.
+- A **mini-map** draws the real route and a marker follows it with MotionPath.
+- The current city's name stands behind the truck as giant outlined type.
+
+**Close.** "Every leg, every load, on contract." The figures sit in a ruled table, not counters.
 
 | Colour | Hex | Role | Contrast |
 |---|---|---|---|
-| Gantry blue | `#1238A8` | ground | sign on gantry 8.6:1 |
-| Deep blue | `#081C63` | night band, footer | sign on deep 13.6:1 |
-| Sign cream | `#F6F0E1` | panels, text on blue | n/a |
-| Sign ink | `#0A2070` | text on cream | 12.7:1 on sign |
-| Mist | `#C9D6FA` | secondary text on blue | 6.7:1 on gantry |
-| Lane amber | `#E8B04B` | the one lane-line accent | 5.0:1 on gantry, 7.9:1 on deep |
+| Night | `#0B1440` | ground | — |
+| Deep | `#070D2C` | road | — |
+| Cream | `#F3ECDD` | type, the tanker | 15.0:1 on night |
+| Mist | `#A9B6E6` | secondary text | 8.9:1 |
+| Signal | `#5B7FFF` | route, progress | 5.0:1 |
+| Amber | `#E3A23F` | lane centre line only, after the mark's own road | 8.6:1 on deep |
 
-**Type.** Overpass (a highway-sign grotesque) for route numerals, panel headings and UI, with Source Sans 3 for
-body. Scale: 16 / 20 / 28 / 40 / 64 / clamp(72, 14vw, 200) for route numerals, which are set very large with tight
-tracking. Cities are set in caps in Overpass 600.
+**Type.**
+- **Big Shoulders** 800–900 for display. It is a condensed grotesque descended from Chicago's signage, so it feels
+  like roadside lettering.
+- **Hanken Grotesk** for body.
+- **Martian Mono** for readouts.
+- Display runs `clamp(80px, 15vw, 268px)` at line-height 0.8.
 
-**Layout.** The hero is a gantry: a thin steel beam across the top with three or four sign panels hanging from it
-(M-9 Karachi–Hyderabad, N-5 Sukkur, M-5 Multan, M-4 and M-3 Lahore), the headline on the largest panel. Below, each
-corridor section is an "exit": a numbered exit panel with city, road and what is carried there.
+**Motion overall.** Mechanical and continuous. Linear (`none`) easing wherever scroll drives distance. A short
+`power4.out` for text rising out of masks. Lenis lerp 0.09.
 
-**Signature motion.** Scrolling is a **drive under the gantry**: as each section arrives, its sign panels slide in
-from the top edge on a short carry (like passing under the structure), and a dashed lane line scrolls on the floor of
-the page, locked to scroll position. **Overall motion:** scroll-linked and purposeful; hover states are
-instant and flat; no easing flourish; the lane line stops when the reader stops.
+**Informed by:**
+- United Carriers: the scrubbed truck and live readout.
+- CargoKite: the vehicle as technical line art.
+- Truck'N Roll: confident condensed type.
+- Codrops: the route drawing and following marker.
 
-**Informed by.** [8] Codrops: scroll-driven route technique. [7] Q Industrial: strict two-colour palette. [10]
-Schneider: immediate audience paths. **Departs by** using the road's own sign system as the whole interface, and
-by turning the old night-run illustration (a drawn truck and gantry) into the page structure rather than a scene.
+**Departs** by using a side elevation of Zia Goods' own tanker in line art rather than 3D stock, real named legs
+rather than a speedometer, and the real route map.
 
-**AI-default check.** No gradient hero, no glass, no neon on dark, no icon tiles. It has to avoid ending up as "the old site, but
-brighter". That risk is real, since the ground is still blue, so the panels are flat cream, the type is a sign face
-and not a mono, and there are no glows at all.
+**Risk.** The most "show": it needs a light hand in production so the drive never feels long. On a slow phone, the
+pinned section is the heaviest of the three.
 
 ---
 
-## C. Survey Atlas (map-led, split blue and cream)
+## 2. Ledger in Motion: `/lab/directions/ledger`
 
-**Idea.** The route is the company's real asset, and the client confirmed that maps matter. Instead of a glowing
-dot-field, the country is drawn the way a survey atlas draws it: cream paper, fine ink hairlines for the boundary and the
-motorways, a pale-blue sea, and one bold blue line for the corridor with cities as named stations. Boundary data is GADM
-and Natural Earth with OpenStreetMap roads, with attribution.
+**Idea.** The contract is the product. Cream paper, ink type and a waybill. This is round 1's Contract Ledger
+(which you picked), rebuilt with motion.
+
+**Hero.**
+- The waybill rules draw left to right.
+- The headline "Twenty years on the road, *nationwide.*" is written in **word by word** out of masks (SplitText).
+- The seal **turns in and lands**, then keeps turning a quarter turn per screen as you scroll, like a stamp being
+  lined up.
+- Port Qasim's coordinates run along the top as micro-type.
+
+**Signature: the contract, read sideways** (pinned, scrubbed):
+- Schedule A and the five cargo clauses travel horizontally.
+- Each clause's ghost numeral (01–05) drifts against its panel.
+- Between clauses 3 and 4 **the paper turns to ink** in one quick flip.
+- On the last panel, "Twenty years, *every clause kept*", **the seal comes down**: it drops in large and lands with
+  a ring.
+
+**Close.** The record (22 / 20 / 14 / 8) in light serif numerals, then "Put your lane *on contract*."
 
 | Colour | Hex | Role | Contrast |
 |---|---|---|---|
-| Paper | `#F1EADA` | map ground | n/a |
-| Sea | `#D8E2F6` | water and the quiet panels | ink on sea 9.2:1 |
-| Ink | `#10307F` | boundary, labels, text | 10.0:1 on paper |
-| Route blue | `#1D4ED8` | the corridor | 5.6:1 on paper, 5.2:1 on sea |
-| Contour | `#8FA2D4` | context roads (decorative only) | 2.1:1, never text |
-| Night | `#0A1B52` | the left information panel | paper on night 13.6:1 |
+| Paper | `#F5EEDF` | ground | — |
+| Ink | `#0C2467` | text | 12.4:1 on paper |
+| Deep | `#071544` | ink state, close | paper on deep 15.2:1 |
+| Stamp | `#2146C7` | seal, emphasis | 6.6:1 on paper |
+| Stamp light | `#9FB3FF` | emphasis on deep | 8.6:1 on deep |
+| Seal amber | `#B8791A` | one dot on the seal | graphic only |
 
-**Type.** Spectral (a book serif, with italics) for place names and headlines, Barlow for body and UI, Barlow
-Condensed for road numbers and map labels. Scale: 16 / 19 / 24 / 32 / 48 / clamp(48, 6.5vw, 96).
+**Type.**
+- **Newsreader** for display and text, including italics.
+- **Public Sans** for UI.
+- **IBM Plex Mono** for slip data.
+- Hero `clamp(60px, 10vw, 180px)` at line-height 0.92.
 
-**Layout.** A split screen: a night-blue information panel on the left (headline, sub, two paths to contact, the
-four figures set as a plain legend), and the atlas page on the right, cream and full height, with a scale bar, a
-north arrow and a small credit line. Below the fold the five cargoes are "stations" listed against a vertical
-route line.
+**Motion overall.** Quiet and weighted, with deceleration only (`power3`/`power4.out`, `expo.out` for the seal).
+The only scrubbed movement is the sideways contract. Lenis lerp 0.085.
 
-**Signature motion.** The corridor **inks itself north from Port Qasim**. A single route line draws along the real
-M-9, N-5, M-5, M-4, M-3 path, and each city's station label prints as the line reaches it. It plays once, in about
-three seconds, and the finished map is the static state. **Overall motion:** one drawn line and nothing else;
-station labels respond to hover with a plain underline; no looping pulses.
+**Informed by:**
+- WeEvolveIT: the sequence with ghost numerals and a colour shift.
+- Rapide: coordinates as texture.
+- Wembi: numbered structure.
 
-**Informed by.** [8] Codrops: path drawing. [3] Rapide Yacht Group: coordinates and place detail as texture. [9]
-Flexport: showing the real object. **Departs by** rendering the route as cartography rather than as a light, and
-by keeping the map as one calm object, not a field of thousands of dots.
+**Departs** with paper and serif rather than dark mono, numbers that are real clause numbers, and the seal as the
+one moment of drama.
 
-**AI-default check.** No dot field, no pulsing glow, no gradients, no icon tiles. The map is real data, so the
-page cannot be generic. Split-hero is a common layout, so what keeps it from being a template is the printed-atlas
-detailing (scale bar, graticule ticks, a coloured sea) and the serif.
+**Risk.** The quietest of the three. It is premium through restraint, and depends on beautiful copy.
+
+---
+
+## 3. Cobalt Atlas: `/lab/directions/atlas`
+
+**Idea.** One map, one camera. The real road network, drawn in cream hairlines on vivid cobalt, is the hero, and
+then it becomes the camera.
+
+**Hero.**
+- The country's outline draws itself.
+- The 20 context roads fade in at random.
+- The 8 corridors draw.
+- "Twenty years, nationwide." rises line by line in Libre Caslon.
+- A survey frame, a live coordinate readout and a scale bar surround the map.
+
+**Signature: the flight** (pinned over about seven screens, scrubbed):
+- The copy steps aside and the camera **dives into Port Qasim**.
+- It **follows the real route north**, with the line inking in behind it, through Hyderabad, Sukkur, Multan,
+  Faisalabad and Lahore.
+- Each stop gets a chapter card: the city in large Caslon, its coordinates, and the road taken.
+- The coordinate readout updates at each stop.
+- The camera **pulls back to the whole country**, all eight corridors light, and "Nationwide." lands with the figures.
+- Strokes are non-scaling, so lines stay hairline at any zoom, and labels are counter-scaled.
+
+**Close.** Cream band: "Name the lane. We'll draw the line."
+
+| Colour | Hex | Role | Contrast |
+|---|---|---|---|
+| Cobalt | `#1E3CC0` | ground | — |
+| Cream | `#F2EBDC` | map ink, type | 7.2:1 on cobalt |
+| Pale | `#C6D1FF` | secondary text | 5.7:1 on cobalt |
+| Deep | `#0D1E66` | text on cream | 12.7:1 on cream |
+
+**Type.**
+- **Libre Caslon Display**, a classic map-lettering serif, for display.
+- **Schibsted Grotesk** for UI and labels.
+- Hero `clamp(56px, 7.6vw, 136px)`, city cards up to 132px.
+
+**Motion overall.** Cinematic and slow: `power2.inOut` camera moves, linear while following the road, and a
+scrub of 1 for weight. Lenis lerp 0.08.
+
+**Informed by:**
+- Codrops: the scroll-driven SVG map camera.
+- United Carriers: map as hero, and the readout.
+- Rapide: coordinates.
+- Truck'N Roll: bold single-colour field.
+
+**Departs** with real survey data in printed-atlas hairlines rather than a glowing globe or dot-field, and a vivid
+cobalt rather than black.
+
+**Risk.** Map-led, so it leans on the GADM permission being confirmed. It is the closest of the three to the old
+site's idea, the map, but has none of its look.
 
 ---
 
 ## Comparison
 
-| | A. Ledger | B. Gantry | C. Atlas |
+| | 1. The Run | 2. Ledger in Motion | 3. Cobalt Atlas |
 |---|---|---|---|
-| Ground | cream | cobalt | split: night + cream |
-| Subject | the contract | the road signs | the map |
-| Display type | serif | highway grotesque | book serif |
-| Signature | seal stamp | drive under gantry | route inks itself |
-| Risk | too quiet or "legal" | reads as "old site, brighter" | split-hero cliché |
-| Break from old site | strongest | weakest | strong |
-| Ambition vs. trust | trust-led | recognition-led | proof-led |
+| Subject | the tanker on the road | the contract | the network from above |
+| Ground | night navy | cream paper → ink | vivid cobalt |
+| Display type | condensed grotesque | book serif | map serif |
+| Signature | scroll-driven drive with gantries | sideways contract, seal stamps | camera flight along the corridor |
+| Feel | bold, kinetic | calm, exacting | cinematic, expansive |
+| Message it lands best | "we run these roads" | "we honour contracts" | "twenty years, nationwide" |
 
 ## Recommendation
 
-**C or A.** A is the clearest statement of "honours contracts" and breaks hardest from the old site; C puts the
-confirmed 20-years-nationwide claim in the one picture only Zia Goods can draw. B is the most memorable but sits
-closest to the old site's blue and its night-run scene.
+**3 or 1.** The Atlas is the most premium-feeling and lands the client's ten-second belief ("twenty years,
+nationwide") with the one picture only Zia Goods can draw. The Run is the most memorable and the closest in spirit
+to United Carriers, the client's own favourite.
+
+A strong production hybrid is the **Atlas hero and flight plus The Run's tanker** in the services section. The Ledger
+is the safest choice, and its seal and clause pattern would also make a good contract-carriage page in either of the
+other two.
