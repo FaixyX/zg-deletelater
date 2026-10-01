@@ -1,0 +1,353 @@
+/* Direction A — Contract Ledger. Throwaway lab styles, scoped under .a. */
+.a {
+  --paper: #f5eedf;
+  --ink: #0c2467;
+  --deep: #071544;
+  --stamp: #2146c7;
+  --rule: #b9c4e4;
+  --seal: #b8791a;
+  --serif: var(--a-serif), "Iowan Old Style", Georgia, serif;
+  --sans: var(--a-sans), system-ui, sans-serif;
+  --mono: var(--a-mono), ui-monospace, Menlo, monospace;
+  --pad: clamp(20px, 5vw, 72px);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 17px;
+  line-height: 1.55;
+  min-height: 100svh;
+}
+.a .a-mono {
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+
+/* header */
+.a-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 22px var(--pad);
+  border-bottom: 1px solid var(--ink);
+}
+.a-logo {
+  height: 44px;
+  width: auto;
+}
+.a-nav {
+  display: flex;
+  gap: clamp(14px, 3vw, 36px);
+  font-size: 15px;
+  font-weight: 500;
+}
+.a-nav a {
+  text-decoration: none;
+  background: linear-gradient(var(--stamp), var(--stamp)) 0 100% / 0 2px no-repeat;
+  transition: background-size 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  padding-bottom: 3px;
+}
+.a-nav a:hover,
+.a-nav a:focus-visible {
+  background-size: 100% 2px;
+}
+
+/* waybill strip */
+.a-hero {
+  padding: 0 var(--pad) clamp(40px, 6vw, 88px);
+}
+.a-slip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-bottom: 1px solid var(--ink);
+}
+.a-slip > div {
+  padding: 14px 16px 12px 0;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+.a-slip > div + div {
+  padding-left: 16px;
+  border-left: 1px solid var(--rule);
+}
+.a-slip span {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.a-slip b {
+  font-weight: 600;
+  font-size: 15px;
+}
+.a-slip i {
+  display: block;
+  height: 1.3em;
+  border-bottom: 1px solid var(--ink);
+}
+
+/* hero */
+.a-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(200px, 24vw, 320px);
+  gap: clamp(24px, 5vw, 80px);
+  align-items: center;
+  padding-top: clamp(32px, 6vw, 80px);
+}
+.a-h1 {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: clamp(44px, 7.4vw, 112px);
+  line-height: 0.98;
+  letter-spacing: -0.025em;
+  max-width: 13ch;
+}
+.a-h1 em {
+  font-style: italic;
+  color: var(--stamp);
+}
+.a-sub {
+  margin-top: clamp(20px, 3vw, 36px);
+  max-width: 46ch;
+  font-size: 19px;
+}
+.a-cta {
+  margin-top: 28px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.a-btn {
+  display: inline-block;
+  padding: 14px 24px;
+  border: 1.5px solid var(--ink);
+  font-weight: 600;
+  font-size: 16px;
+  text-decoration: none;
+  transition: background-color 200ms, color 200ms;
+}
+.a-btn--solid {
+  background: var(--ink);
+  color: var(--paper);
+}
+.a-btn:hover,
+.a-btn:focus-visible {
+  background: var(--stamp);
+  border-color: var(--stamp);
+  color: var(--paper);
+}
+
+/* the seal */
+.a-seal {
+  width: 100%;
+  height: auto;
+  color: var(--stamp);
+  transform: rotate(-8deg);
+}
+.a-seal-ring {
+  fill: currentColor;
+  font: 600 13.5px var(--sans);
+  letter-spacing: 0.22em;
+}
+.a-seal-num {
+  fill: currentColor;
+  font: 400 58px var(--serif);
+}
+.a-seal-dot {
+  fill: var(--seal);
+}
+
+/* figures as a slip table */
+.a-stats {
+  margin-top: clamp(40px, 6vw, 80px);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-top: 1.5px solid var(--ink);
+}
+.a-stats > div {
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 16px 16px 0 0;
+}
+.a-stats > div + div {
+  padding-left: 16px;
+  border-left: 1px solid var(--rule);
+}
+.a-stats dd {
+  font-family: var(--serif);
+  font-size: clamp(40px, 5vw, 64px);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.a-stats dt {
+  font-size: 14px;
+  max-width: 16ch;
+}
+
+/* motto */
+.a-motto {
+  margin-top: clamp(32px, 4vw, 56px);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 12px 28px;
+}
+.a-motto-en {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 22px;
+}
+.a-motto-ur {
+  font-family: var(--a-urdu), serif;
+  font-size: 26px;
+  line-height: 2.1;
+  color: var(--stamp);
+}
+
+/* ledger */
+.a-ledger {
+  background: var(--deep);
+  color: var(--paper);
+  padding: clamp(48px, 7vw, 104px) var(--pad);
+}
+.a-ledger-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 24px 64px;
+  align-items: end;
+  padding-bottom: 28px;
+  border-bottom: 1.5px solid var(--paper);
+}
+.a-ledger-head h2 {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: clamp(34px, 4.6vw, 64px);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+}
+.a-ledger-head p {
+  max-width: 40ch;
+}
+.a-row {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: 16px 40px;
+  padding: 28px 0;
+  border-bottom: 1px solid #3b4f94;
+}
+.a-row h3 {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: clamp(26px, 3vw, 38px);
+  line-height: 1.1;
+}
+.a-row-line {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 19px;
+  margin: 6px 0 10px;
+  color: #e6dcc3;
+}
+.a-row-main p:last-child {
+  max-width: 58ch;
+}
+.a-row-no {
+  padding-top: 8px;
+  color: #c4cff0;
+}
+.a-specs {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  font-size: 15px;
+}
+.a-specs li {
+  padding-bottom: 8px;
+  border-bottom: 1px dashed #3b4f94;
+}
+
+/* the moment: seal presses on, rules draw. Only when a-go is set. */
+html[data-a-go] .a-seal {
+  animation: a-press 380ms cubic-bezier(0.2, 0.8, 0.2, 1) 500ms both;
+}
+html[data-a-go] .a-slip,
+html[data-a-go] .a-stats {
+  animation: a-rule 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  clip-path: inset(0 0 0 0);
+}
+html[data-a-go] .a-h1,
+html[data-a-go] .a-sub {
+  animation: a-settle 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+html[data-a-go] .a-sub {
+  animation-delay: 120ms;
+}
+@keyframes a-press {
+  from { opacity: 0; transform: rotate(-14deg) scale(1.12); }
+  to { opacity: 1; transform: rotate(-8deg) scale(1); }
+}
+@keyframes a-rule {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+@keyframes a-settle {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .a *,
+  .a *::before {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* phones */
+@media (max-width: 800px) {
+  .a-nav a:nth-child(2),
+  .a-nav a:nth-child(3) {
+    display: none;
+  }
+  .a-slip {
+    grid-template-columns: 1fr 1fr;
+  }
+  .a-slip > div:nth-child(3) {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .a-slip > div:nth-child(n + 3) {
+    border-top: 1px solid var(--rule);
+  }
+  .a-hero-grid {
+    grid-template-columns: 1fr;
+  }
+  .a-seal {
+    width: 150px;
+    order: -1;
+  }
+  .a-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+  .a-stats > div:nth-child(3) {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .a-stats > div:nth-child(n + 3) {
+    border-top: 1px solid var(--rule);
+    margin-top: 16px;
+  }
+  .a-ledger-head {
+    grid-template-columns: 1fr;
+  }
+  .a-row {
+    grid-template-columns: 40px 1fr;
+  }
+  .a-specs {
+    grid-column: 2;
+  }
+}
