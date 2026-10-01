@@ -26,26 +26,29 @@ if (typeof window !== "undefined") {
  * 1. The vocabulary
  * ------------------------------------------------------------------ */
 
+/* Direction A, "Contract Ledger" (DESIGN.md): still paper, short weighted
+   settles, nothing that bounces or overshoots. Every curve decelerates into
+   place; the one looping value (flow) is a plain sine. */
 export const EASE = {
-  settle: "power2.out", // arrives with weight, stops clean — the default
-  snap: "power4.out", // fast and precise — user-triggered things
-  carry: "power1.inOut", // long steady travel — large objects
-  lift: "power2.out", // small rise into place — text, cards
-  flow: "sine.inOut", // viscous, looping — route fill, breathing states
-  hold: "none", // no easing of its own — scroll-scrubbed only
-  veil: "power2.inOut", // cross-dissolve — preloader handing off to hero
+  settle: "power3.out", // lands with weight and stops clean (the seal pressing on) -- the default
+  snap: "power4.out", // fast and precise -- user-triggered things
+  carry: "power2.inOut", // long steady travel
+  lift: "power3.out", // small rise into place -- text, rules
+  flow: "sine.inOut", // looping states, where there are any
+  hold: "none", // no easing of its own -- scroll-scrubbed only
+  veil: "power2.inOut", // cross-dissolve
 } as const;
 
 export const DUR = {
-  settle: 0.6,
-  snap: 0.4,
-  carry: 1.2,
-  lift: 0.5,
+  settle: 0.42,
+  snap: 0.32,
+  carry: 0.7,
+  lift: 0.42,
   flow: 5,
 } as const;
 
-export const STAGGER = 0.08; // seconds between siblings
-export const LIFT_Y = 30; // px, always from below — one direction sitewide
+export const STAGGER = 0.06; // seconds between siblings
+export const LIFT_Y = 14; // px, always from below -- one direction sitewide
 export const START = "top 80%"; // when an entrance fires
 
 /* ------------------------------------------------------------------ *
@@ -829,9 +832,9 @@ export const DISPATCH = {
  * ------------------------------------------------------------------ */
 
 export const SMOOTH = {
-  lerp: 0.1, // share of the remaining distance covered each frame: lower is silkier, higher is tighter
+  lerp: 0.14, // share of the remaining distance covered each frame: tighter than before, so paper doesn't float
   wheelMultiplier: 1,
-  jump: 1.2, // seconds a nav jump takes
+  jump: 0.8, // seconds a nav jump takes
 } as const;
 
 let lenis: Lenis | null = null;
