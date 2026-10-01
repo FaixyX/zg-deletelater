@@ -33,3 +33,13 @@ islands come from GADM.
 
 Then keep the largest polygon of the feature named `Pakistan`: the other
 two are an offshore maritime claim near Gujarat and a coastal islet.
+
+## Permissions and licences
+
+- **GADM** (`gadm41_PAK_0.json`): GADM data is free for non-commercial use only unless the
+  rights holder agrees otherwise. The client reports (2026-10-01) that they asked GADM and were told
+  to go ahead. Written permission has not been seen by us: keep a copy here when the client provides
+  it, and credit GADM wherever the boundary is shown.
+- **Natural Earth** (`ne_pak_pov.json`): public domain.
+- **OpenStreetMap** (`osm-roads.json`): ODbL. Credit "© OpenStreetMap contributors" wherever the
+  roads are shown.

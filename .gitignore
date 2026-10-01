@@ -26,3 +26,9 @@ __pycache__/
 
 # typescript incremental build info
 *.tsbuildinfo
+
+# screenshots: third-party inspiration shots must never be committed; lab shots are sent, not stored
+screenshots/
+
+# Impeccable engine binary: ~18MB, fetched by the launcher on first use
+.claude/skills/impeccable/scripts/bin/
