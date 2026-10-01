@@ -1,0 +1,6962 @@
+@import "tailwindcss";
+
+/* Brand palette. Exposed as Tailwind tokens, so `bg-navy`, `text-cream`,
+   `stroke-amber` etc. all work, and raw `var(--color-amber)` is still
+   available for the SVG rules further down. */
+@theme {
+  --color-navy: #011f7b;
+  --color-navy-deep: #0b1433;
+  --color-blue: #2457ff;
+  --color-cream: #f8f1e4;
+  --color-mist: #d8e3ff;
+  --color-amber: #e8a33d;
+
+  /* Map-only incidentals: not brand colours, just the dot field and the
+     context road network. Kept as tokens so they're tweakable in one place. */
+  --color-dot: #5e73b4;
+  --color-outline: #364f9b;
+  --color-road-ctx: #4960a7;
+  --color-road-pulse: #ffd9a0;
+  --color-rule: #233e90;
+  --color-ghost-border: #3a539e;
+
+  /* Three roles, one face: body text (sans, the page default), display
+     type -- the headline, the statement, the figures -- and the small
+     labels are all Space Mono. Kept as separate tokens so any role can
+     take a different face again without touching the others. */
+  --font-sans: var(--font-space-mono), ui-monospace, Menlo, monospace;
+  --font-display: var(--font-space-mono), ui-monospace, Menlo, monospace;
+  --font-mono: var(--font-space-mono), ui-monospace, Menlo, monospace;
+}
+
+/* Map geometry, in one place.
+
+   The 900/950 is the map's viewBox aspect: the svg is sized by height,
+   so its width follows from it. */
+:root {
+  --map-h: 94svh;
+  --map-w: calc(var(--map-h) * 900 / 950);
+  --map-inset-right: 4vw;
+
+  /* Liquid glass on the hero CTAs. Strength scales every layer of the
+     effect at once -- blur, tint, rim, specular, lift -- so one number
+     takes it from off to full. Driven live by the DialKit "Glass" panel. */
+  --glass-strength: 1;
+
+  /* The design unit. The site is drawn for screens up to 1600px wide, and
+     every length that sets the size of type, spacing or a component is a
+     multiple of this: exactly 1px up to there, so phones, tablets and
+     laptops are drawn to the pixel as designed. Past it the whole design
+     grows with the screen, as one piece -- on a 1920 or 2560 display it
+     no longer sits small in the middle of a sea of navy -- held to the
+     screen's height too, so a very wide, short window never grows the
+     type past what fits, and stopping at 2.4x. Hairlines stay in px. */
+  --u: max(1px, min(100vw / 1600, 100vh / 900, 2.4px));
+
+  /* The page gutter. */
+  --page-pad: calc(44 * var(--u));
+
+  /* The header's line, from the top of the window: the logo and the nav
+     pill are both centred on it, so on a desktop they read as one row. */
+  --header-mid: calc(46 * var(--u));
+  --logo-h: calc(51 * var(--u));
+
+  /* The header's one spring, for the nav and the logo alike. */
+  --nav-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --nav-dur: 0.6s;
+}
+
+@media (max-width: 900px) {
+  :root {
+    --page-pad: calc(22 * var(--u));
+  }
+}
+
+/* The map is sized by height but constrained by width, so on a narrower
+   desktop the same --map-h reaches much further into the copy column:
+   94svh puts its western dots 119px inside the text at 1280 against 51px
+   at 1440. It steps back below 1400 rather than the copy giving way. */
+@media (max-width: 1400px) {
+  :root {
+    --map-h: 86svh;
+  }
+}
+
+html,
+body {
+  background: var(--color-navy);
+  color: var(--color-cream);
+  overflow-x: hidden;
+}
+/* Clip, not hidden, on body. Hidden on both axes of body's box makes it a
+   scroll container -- one that never actually scrolls -- and a sticky
+   element sticks to its nearest scroll container, so the hero would
+   never hold. Clip crops the same overflow without creating one. html
+   keeps hidden: on the root it applies to the viewport itself. */
+body {
+  overflow-x: clip;
+}
+
+/* ------------------------------------------------------------------ *
+ * Liquid glass
+ *
+ * Every layer is multiplied by --glass-strength, so the single control
+ * genuinely takes the effect from nothing to full rather than just
+ * fading a tint. The layers are the ones real glass gives you: a
+ * blurred, slightly over-saturated backdrop; a translucent body; a bright
+ * rim along the top edge and a dark one along the bottom, which is what
+ * reads as thickness; and a soft drop to lift the surface off the page.
+ *
+ * The "liquid" part is the sheen: a narrow diagonal highlight parked off
+ * the right edge that sweeps across on hover. It is a background-position
+ * transition on a pseudo-element, so it costs no layout and no JS -- the
+ * nav links and the CTAs stay server components.
+ * ------------------------------------------------------------------ */
+
+.glass {
+  --g: var(--glass-strength);
+  position: relative;
+  isolation: isolate;
+  border-radius: 999px;
+  background: rgba(216, 227, 255, calc(0.07 * var(--g)));
+  border: 1px solid rgba(216, 227, 255, calc(0.15 * var(--g)));
+  -webkit-backdrop-filter: blur(calc(14px * var(--g))) saturate(calc(100% + 70% * var(--g)));
+  backdrop-filter: blur(calc(14px * var(--g))) saturate(calc(100% + 70% * var(--g)));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, calc(0.2 * var(--g))),
+    inset 0 -1px 0 rgba(1, 15, 60, calc(0.32 * var(--g))),
+    0 6px 18px rgba(1, 12, 52, calc(0.3 * var(--g)));
+  transition:
+    background-color 250ms ease,
+    border-color 250ms ease,
+    box-shadow 250ms ease,
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 34%,
+    rgba(255, 255, 255, calc(0.16 * var(--g))) 47%,
+    transparent 62%
+  );
+  background-size: 260% 100%;
+  background-position: 130% 0;
+  transition: background-position 760ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .glass:hover {
+    background: rgba(216, 227, 255, calc(0.11 * var(--g)));
+    border-color: rgba(216, 227, 255, calc(0.24 * var(--g)));
+  }
+  .glass:hover::before {
+    background-position: -30% 0;
+  }
+}
+
+.glass:active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass,
+  .glass::before {
+    transition: none;
+  }
+}
+
+/* Hero CTA: same glass, button-sized. */
+.glass--cta {
+  padding: calc(13 * var(--u)) calc(28 * var(--u));
+}
+/* Space Mono is wide: at full size the two CTAs don't share a phone's
+   width, and stacked pills of different lengths read as a mistake. At
+   13px (see Hero) with a tighter inset they sit side by side from 375px
+   up, which is almost every phone; narrower still, they wrap. */
+@media (max-width: 900px) {
+  .glass--cta {
+    padding: calc(12 * var(--u)) calc(16 * var(--u));
+  }
+}
+
+/* The primary action stays the brightest thing in the row. Glass at a
+   low tint would sink it to the same weight as the secondary, so its
+   body is cream at high alpha -- still blurred, still rimmed, still
+   swept by the sheen, but opaque enough to carry navy label text. */
+.glass--primary {
+  background: rgba(248, 241, 228, calc(0.06 + 0.86 * var(--g)));
+  border-color: rgba(255, 255, 255, calc(0.4 * var(--g)));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, calc(0.7 * var(--g))),
+    inset 0 -1px 0 rgba(1, 15, 60, calc(0.14 * var(--g))),
+    0 8px 22px rgba(1, 12, 52, calc(0.34 * var(--g)));
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .glass--primary:hover {
+    background: rgba(255, 250, 240, calc(0.06 + 0.92 * var(--g)));
+    border-color: rgba(255, 255, 255, calc(0.55 * var(--g)));
+  }
+}
+
+/* Oil in the primary button: at rest it waits below the pill; on hover
+   or keyboard focus it rises most of the way, its surface rolling, and a
+   press fills it. Below the label (z -1 inside the glass's isolated
+   stack), clipped to the pill. */
+.cta-oil {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.cta-oil-body {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, #f0b04e 0%, var(--color-amber) 45%, #cf8527 100%);
+  /* Parked below the pill with its wave, which rides above it, clear too. */
+  transform: translateY(calc(100% + 14 * var(--u)));
+  transition: transform 560ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+/* The surface, shaped by CtaOil to reach for the pointer. It rides on
+   top of the body, with room above for the swell. */
+.cta-oil-wave {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% - 5 * var(--u));
+  width: 100%;
+  height: calc(14 * var(--u));
+  fill: #f0b04e;
+}
+@media (hover: hover) and (pointer: fine) {
+  .glass--primary:hover .cta-oil-body {
+    transform: translateY(30%);
+  }
+}
+.glass--primary:focus-visible .cta-oil-body {
+  transform: translateY(30%);
+}
+.glass--primary:active .cta-oil-body {
+  transform: translateY(0%);
+  transition-duration: 200ms;
+}
+
+/* The stats as stops on a route: the rule over them lit amber, a stop
+   above each figure, and a light travelling the line. The light is a
+   full-width layer carrying one dot at its left edge, slid across by a
+   transform, so it runs on the compositor; it rests while the hero is
+   leaving, like the map's own pulses. */
+#hero .stats {
+  position: relative;
+}
+#hero .stats::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--color-amber) 0%, var(--color-amber) 55%, rgba(216, 227, 255, 0.16) 100%);
+  box-shadow: 0 0 8px rgba(232, 163, 61, 0.45);
+}
+#hero .stats::after {
+  content: "";
+  position: absolute;
+  top: calc(-6 * var(--u));
+  left: 0;
+  width: 100%;
+  height: calc(12 * var(--u));
+  background: radial-gradient(circle 5px at 6px 50%, #fff3dc 0, #ffd08a 45%, rgba(232, 163, 61, 0.55) 70%, transparent 100%)
+    no-repeat;
+  filter: drop-shadow(0 0 6px rgba(232, 163, 61, 0.9));
+  animation: hero-route 7s linear infinite;
+  pointer-events: none;
+}
+@keyframes hero-route {
+  0% {
+    transform: translateX(-2%);
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(98%);
+    opacity: 0;
+  }
+}
+#hero[data-leaving] .stats::after {
+  animation-play-state: paused;
+}
+#hero .stats > div {
+  position: relative;
+}
+/* A stop on the line above each figure. The row's top padding is 22px. */
+#hero .stats > div::before {
+  content: "";
+  position: absolute;
+  top: calc(-27 * var(--u));
+  left: 0;
+  width: calc(10 * var(--u));
+  height: calc(10 * var(--u));
+  border: 2px solid var(--color-navy);
+  border-radius: 50%;
+  background: var(--color-amber);
+  box-shadow: 0 0 8px rgba(232, 163, 61, 0.7);
+}
+/* On a phone the four figures sit two to a row; only the top pair is
+   on the line. */
+@media (max-width: 900px) {
+  #hero .stats > div:nth-child(n + 3)::before {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #hero .stats::after {
+    display: none;
+  }
+  .cta-oil-body {
+    transition: none;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Hero background stack
+ *
+ * The map used to own the right half of the screen at full strength.
+ * Now it sits behind centred type, so it has to give contrast back:
+ * the dot field drops to 56% as a group (the load timeline animates
+ * opacity on the individual circles, and the two multiply, so the
+ * reveal is untouched), and a scrim pools darkness under the headline.
+ *
+ * The scrim is two gradients on one element. The radial darkens the
+ * middle where the type sits; the linear keeps the top clear of the
+ * fixed header and fades the map out before it reaches the footer
+ * rule, so nothing hard-cuts at the section edge.
+ * ------------------------------------------------------------------ */
+
+.hero-scrim {
+  background:
+    linear-gradient(
+      to right,
+      rgba(1, 12, 52, 0.9) 0%,
+      rgba(1, 15, 66, 0.72) 26%,
+      rgba(1, 24, 98, 0.3) 42%,
+      rgba(1, 31, 123, 0) 56%
+    ),
+    linear-gradient(
+      to bottom,
+      rgba(1, 31, 123, 0.42) 0%,
+      rgba(1, 31, 123, 0) 18%,
+      rgba(1, 31, 123, 0) 84%,
+      rgba(1, 31, 123, 0.55) 100%
+    );
+}
+
+/* The map is its own compositor layer, always. The scroll transition
+   fades it, and the narrow-screen rule below dims it for good; as a
+   layer, both are applied by the compositor to an image it already has.
+   Left to the browser's heuristics it was promoted and dropped as the
+   transition ran -- each re-promotion re-rasterising all 4,388 dots in
+   one frame -- and any opacity below 1 on a non-composited group makes
+   the browser redraw the whole field offscreen every frame. Opacity only:
+   nothing moves it any more (see ScrollTransition). */
+.map-layer {
+  will-change: opacity;
+}
+
+/* The map's moving parts -- the corridor pulse and the city rings -- on a
+   compositor layer of their own, over the still one. A layer is redrawn
+   wherever anything in it changes, dots included: when the pulse shared
+   the dot field's layer, each of its frames repainted every dot it
+   crossed -- some 7ms of paint a frame on a desktop CPU and 28ms with the
+   CPU slowed to a mid-range phone's, for as long as the hero sat idle.
+   Here a frame redraws a few strokes. */
+.map-live {
+  will-change: transform;
+}
+
+/* Amber wash under the route, tracking the map to the right half. Two
+   stops rather than one: a tight core over the corridor's bulk through
+   Punjab, and a wide faint halo so the falloff doesn't end on a visible
+   edge. */
+.map-glow {
+  background:
+    radial-gradient(
+      ellipse 20% 40% at 72% 44%,
+      rgba(232, 163, 61, 0.14) 0%,
+      rgba(232, 163, 61, 0.05) 45%,
+      rgba(232, 163, 61, 0) 72%
+    ),
+    radial-gradient(
+      ellipse 34% 58% at 70% 50%,
+      rgba(232, 163, 61, 0.055) 0%,
+      rgba(232, 163, 61, 0) 70%
+    );
+}
+
+@media (max-width: 900px) {
+  /* No left column to protect on a phone -- the copy spans the width, so
+     the horizontal wash would darken the wrong half. A flat veil plus a
+     dimmer map does the same job. */
+  .hero-scrim {
+    background: linear-gradient(
+      to bottom,
+      rgba(1, 31, 123, 0.62) 0%,
+      rgba(1, 20, 92, 0.42) 40%,
+      rgba(1, 20, 92, 0.42) 70%,
+      rgba(1, 31, 123, 0.72) 100%
+    );
+  }
+  .map-glow {
+    background: radial-gradient(
+      ellipse 42% 34% at 52% 50%,
+      rgba(232, 163, 61, 0.11) 0%,
+      rgba(232, 163, 61, 0) 72%
+    );
+  }
+  .map-layer {
+    opacity: 0.66;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Pakistan map
+ *
+ * Note the map-* prefixes: `outline` and `ring` are both Tailwind
+ * utility names, so bare `.outline` / `.ring` class names get the
+ * utility's rules too -- a 1px CSS outline around all 46 boundary
+ * paths, and a ring box-shadow on the city markers.
+ *
+ * These stay as plain CSS rather than utilities: they set SVG
+ * presentation properties (fill-opacity, r, stroke-linejoin) that
+ * Tailwind has no utilities for, and they're applied to thousands of
+ * generated elements where a class list per element would bloat the
+ * document.
+ * ------------------------------------------------------------------ */
+
+/* Corridor depth map. Each dot carries a band (0 nearest .. 7 farthest)
+   measured at build time from the nearest corridor vertex, so the route
+   reads as the focal plane and the country recedes behind it. The base is
+   a cool periwinkle that reads as lit against the saturated ground; only
+   d0-d2 carry a warm tint (13/7/3% toward amber), because mixing amber
+   through the whole ladder desaturates the dots into grey here rather
+   than warming them. d3-d7 inherit the base and carry depth on opacity
+   and radius alone.
+
+   Depth is carried on fill-opacity, not opacity, because the load
+   timeline animates opacity on the dots' rows -- the two multiply, so the
+   gradient survives the reveal. Each band's radius is part of its path
+   (lib/dot-grid.ts), stepping down from the nearest band to the farthest
+   alongside these. */
+.dot {
+  fill: var(--color-dot);
+}
+/* The depth ladder, with a raised floor.
+
+   Depth is measured from the corridor, and Kashmir is the part of the
+   country furthest from it -- 375 of its 392 dots land in the two
+   faintest bands and none in the nearest five. At the old floor of 0.34
+   that rendered as bare outline, so the north-east read as missing
+   rather than merely distant. The floor is 0.55 now: the route still
+   sits on the brightest plane and the country still recedes, but land at
+   the far end of the ramp stays land. Near-to-far goes 2.8:1 -> 1.7:1.
+
+   Never dim this with an opacity on the group: that makes the browser
+   render the whole field to an offscreen buffer and composite it,
+   every frame anything over them changes. Scale these values instead. */
+.dot--d0 {
+  fill: #707aa4;
+  fill-opacity: 0.95;
+}
+.dot--d1 {
+  fill: #6777ac;
+  fill-opacity: 0.88;
+}
+.dot--d2 {
+  fill: #6275b0;
+  fill-opacity: 0.81;
+}
+.dot--d3 {
+  fill-opacity: 0.74;
+}
+.dot--d4 {
+  fill-opacity: 0.68;
+}
+.dot--d5 {
+  fill-opacity: 0.63;
+}
+.dot--d6 {
+  fill-opacity: 0.59;
+}
+.dot--d7 {
+  fill-opacity: 0.55;
+}
+
+.map-boundary {
+  fill: none;
+  stroke: var(--color-outline);
+  stroke-width: 0.75;
+  opacity: 1;
+}
+
+.road-ctx {
+  fill: none;
+  stroke: var(--color-road-ctx);
+  stroke-width: 1.15;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.9;
+}
+
+/* Two-stop bloom falloff around the corridor: a wide, very faint outer
+   wash under the halo. Stacked strokes rather than an SVG blur filter --
+   same read, near-zero cost on mid-range mobile. */
+.road-bloom {
+  fill: none;
+  stroke: var(--color-amber);
+  stroke-width: 26;
+  opacity: 0.09;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.road-halo {
+  fill: none;
+  stroke: var(--color-amber);
+  stroke-width: 9;
+  opacity: 0.26;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* One clean line per leg now (lib/corridor-routes.ts), so it can carry
+   more weight without the doubled strands thickening into a smear. */
+.road-cor {
+  fill: none;
+  stroke: var(--color-amber);
+  stroke-width: 2.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Glow on the city markers. The only filter left on the map: twelve
+   static circles, rasterised once and never touched again.
+
+   The corridor's glow is the stacked strokes above, not a filter. A
+   drop-shadow on #m-cor or #m-pulse looks the same standing still and
+   costs a re-rasterisation of that layer on every frame the pulse
+   moves -- measured here at roughly half the page's frame budget. */
+#m-nodes .core {
+  filter: drop-shadow(0 0 5px rgba(232, 163, 61, 0.6));
+}
+/* Hidden until a pulse runs it (HeroMotion, CorridorMapMotion). */
+.road-pulse {
+  fill: none;
+  stroke: var(--color-road-pulse);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  opacity: 0;
+}
+
+.map-ring {
+  fill: none;
+  stroke: var(--color-amber);
+  stroke-width: 1;
+  opacity: 0.5;
+}
+.core {
+  fill: var(--color-amber);
+}
+.core-min {
+  fill: var(--color-mist);
+  opacity: 0.8;
+}
+/* City names, set to be read: cream, a size up, and cut out of the map
+   by a navy halo (a stroke painted under the fill) so dots, borders and
+   the glowing route behind never muddy them. The ports and capitals of
+   the network -- the major markers -- in bold. */
+.clabel {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  fill: var(--color-cream);
+  letter-spacing: 0.02em;
+  stroke: #04103f;
+  stroke-width: 4px;
+  stroke-linejoin: round;
+  paint-order: stroke fill;
+}
+.clabel--major {
+  font-weight: 700;
+  fill: #ffe7bd;
+}
+/* The dots' resting strength is a fill-opacity on each dot, not an
+   opacity on its row. An opacity below 1 on a group makes the browser
+   draw the group to an offscreen buffer and composite it -- the warning
+   on .dot--d0 above, again -- and the preloader holds this value for the
+   whole countdown. Folded into the fill it costs nothing. */
+.pre-dot {
+  fill: var(--color-mist);
+  fill-opacity: 0.9;
+}
+/* Hidden until HeroMotion fades it in. On the row, not the dot, because
+   the reveal fades rows; each row passes through partial opacity only for
+   its own half-second fade and rests at exactly 1. */
+.pre-row {
+  opacity: 0;
+}
+
+/* The hero copy fades in (HeroMotion, --in) and out (ScrollTransition,
+   --out) through two factors instead of one opacity, so the two
+   animations never fight over the property. And it is set on each block,
+   never on a wrapper: an ancestor below full opacity becomes the glass
+   CTAs' backdrop root and cuts their backdrop-filter off from the page
+   behind, so the frosted glass dropped out the instant the copy began to
+   fade -- a visible pop at the first pixel of scroll, and another at the
+   end of the load-in. */
+#hero-copy > :not(.actions),
+#hero-copy .actions > * {
+  /* Declared at rest, not left to var() fallbacks: GSAP takes a tween's
+     starting value from the computed style, and an undeclared property
+     reads as empty -- which it treats as 0, so the fade out "started" at
+     fully transparent and the copy vanished at the first pixel of scroll. */
+  --in: 1;
+  --out: 1;
+  opacity: calc(var(--in) * var(--out));
+}
+
+/* ------------------------------------------------------------------ *
+ * Scroll transition
+ *
+ * Built from layout rather than per-frame script. The hero is sticky
+ * inside a track that also holds the flood, in flow after it, so it holds
+ * while the flood scrolls past; the flood starts just below the fold, so
+ * the browser itself moves it up over the held hero at exactly scroll
+ * speed. The flood opens onto the night run (NightRun), then a short ramp
+ * to cream, so the hold is spent on content, not on colour. Both are handled on the
+ * compositor thread along with the rest of the scroll -- there is no
+ * script between a scroll and the pixels moving, so nothing can arrive a
+ * frame late. (It used to be a JS pin plus a scrubbed transform, and a
+ * scroll gesture caught the flood up to 50px off its mark on some frames:
+ * the flash-and-catch-up this replaces.)
+ *
+ * When the track ends the hero scrolls away with it and the flood keeps
+ * going, so the pace never changes across the handoff. The flood ends in
+ * flat cream, where the light section's cream takes over.
+ * ------------------------------------------------------------------ */
+
+.hero-track {
+  position: relative;
+  /* Clip, not hidden: hidden would make the track a scroll container and
+     stop the hero sticking. */
+  overflow: clip;
+}
+
+/* In the track's flow, right after the hero: the track is as long as the
+   hero plus the flood, so the hero holds for exactly as long as it takes
+   the flood to scroll up over it, and lets go as the flood's cream end
+   reaches the foot of the screen, directly above the light section.
+   There is no spacer any more; whatever the board holds, the hold fits
+   it. The top margin leaves room for its surface (FloodEdge), which rides
+   above the panel's top and would otherwise show across the foot of the
+   hero at rest. */
+.hero-flood {
+  --edge-h: 120px;
+  --edge-below: 40px;
+  position: relative;
+  z-index: 1;
+  margin-top: calc(var(--edge-h) - var(--edge-below));
+  /* Opaque navy from its very top: the surface's glow carries the
+     entrance (see TRANSITION.floodSolidFrom). */
+  background: var(--color-navy);
+}
+
+/* The ramp to cream, after the board: a short one. The mid stops are
+   mixed from the two brand colours rather than picked by eye, so retuning
+   --color-blue carries the whole ramp with it. */
+.hero-flood-ramp {
+  height: 30svh;
+  background: linear-gradient(
+    to bottom,
+    var(--color-navy) 0%,
+    var(--color-blue) 30%,
+    color-mix(in oklab, var(--color-blue) 52%, var(--color-cream)) 45%,
+    color-mix(in oklab, var(--color-blue) 16%, var(--color-cream)) 57%,
+    var(--color-cream) 72%,
+    var(--color-cream) 100%
+  );
+}
+
+/* ---- The night run (NightRun.tsx) ------------------------------- *
+ *
+ * The motorway the flood opens onto. The section is a view's height plus
+ * the hold; the view sticks while the scroll drives the road
+ * (NightRunMotion). Geometry in step with NIGHT in lib/motion.ts: the
+ * horizon at 42% of the view, the road's lamp gap 45svh and its dashes
+ * repeating on 15svh inside that.
+ * ------------------------------------------------------------------ */
+.nr {
+  --hz: 42%;
+  --rw: max(145vw, 110svh);
+  --lamp-gap: 45svh;
+  --dash: 15svh;
+  position: relative;
+  height: calc(100svh + 80svh);
+  background: var(--color-navy);
+}
+/* The road runs out into the flood's navy rather than stopping at a
+   line: a fade on the section's own foot, so it only comes into view as
+   the view lets go and the ramp to cream, which starts in that navy,
+   follows it up. */
+.nr::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 14svh;
+  background: linear-gradient(to bottom, rgb(1 31 123 / 0), var(--color-navy));
+  pointer-events: none;
+}
+.nr-view {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  overflow: hidden;
+  perspective: 60svh;
+  perspective-origin: 50% var(--hz);
+  color: var(--color-cream);
+}
+
+/* Sky: the flood's navy, a little lighter toward the horizon, and the
+   map's dot field for stars, fading out before it gets there. */
+.nr-sky {
+  position: absolute;
+  inset: 0 0 calc(100% - var(--hz)) 0;
+  background:
+    radial-gradient(circle, rgba(216, 227, 255, 0.5) 0 1px, transparent 1.6px) 0 0 / 22px 22px,
+    linear-gradient(to bottom, var(--color-navy) 0%, #0a2a9e 88%, #1d45d8 100%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 55%, rgba(0, 0, 0, 0.9));
+  mask-image: linear-gradient(to bottom, #000 55%, rgba(0, 0, 0, 0.9));
+}
+.nr-sky::after {
+  /* The stars are only the top of it. */
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent 0%, #0a2a9e 80%, #1d45d8 100%);
+}
+/* Dawn, over the sky: warm at the horizon, blue above it. */
+.nr-dawn {
+  position: absolute;
+  inset: 0 0 calc(100% - var(--hz)) 0;
+  opacity: 0;
+  background:
+    radial-gradient(ellipse 55% 70% at 50% 100%, rgba(255, 200, 130, 0.85) 0%, rgba(255, 170, 90, 0.35) 30%, transparent 70%),
+    linear-gradient(to bottom, rgba(36, 87, 255, 0.55) 0%, rgba(120, 150, 255, 0.7) 100%);
+}
+.nr-ground {
+  position: absolute;
+  inset: var(--hz) 0 0 0;
+  background: linear-gradient(to bottom, #07155a 0%, #020a33 30%, #010726 100%);
+}
+/* The horizon, lit. */
+.nr-ground::before {
+  content: "";
+  position: absolute;
+  inset: -1px 0 auto 0;
+  height: 2px;
+  background: linear-gradient(to right, transparent, rgba(255, 190, 110, 0.55) 30%, rgba(255, 210, 150, 0.8) 50%, rgba(255, 190, 110, 0.55) 70%, transparent);
+}
+
+/* Everything in the scene hangs off the point on the horizon straight
+   ahead; NightRunMotion places it in 3D from there. */
+.nr-stage {
+  position: absolute;
+  top: var(--hz);
+  left: 50%;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+}
+.nr-stage > * {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+/* The road: a plane laid back from the foot of the view as far as the
+   eye can make anything out. Its markings are the logo's road: cream lane
+   lines, an amber centre line with studs beside it, and under each lamp
+   a pool of sodium light.
+
+   Its length is the page's heaviest single number. A browser keeps a 3D
+   plane's whole surface in memory at the screen's pixel density, not just
+   the part in view, and the road's far end is squeezed into a few pixels
+   under the horizon and faded out long before it. At 900svh it was 63
+   million device pixels on a phone, and Safari's engine took the page past
+   3GB with it; at 500svh the fade (below) ends where the plane does, and
+   nothing the eye could have seen is lost. */
+.nr-road {
+  left: calc(var(--rw) / -2);
+  top: calc(100svh - 42svh);
+  width: var(--rw);
+  height: 500svh;
+  transform-origin: 50% 0;
+  transform: rotateX(-90deg);
+  background:
+    radial-gradient(closest-side, rgba(255, 184, 100, 0.14), transparent) 0% 0 / 24% var(--lamp-gap) repeat-y,
+    radial-gradient(closest-side, rgba(255, 184, 100, 0.14), transparent) 100% 0 / 24% var(--lamp-gap) repeat-y,
+    radial-gradient(circle, rgba(255, 207, 122, 0.8) 0 22%, transparent 28%) 51.4% 0 / 0.6% var(--dash) repeat-y,
+    radial-gradient(circle, rgba(255, 207, 122, 0.8) 0 22%, transparent 28%) 48.6% 0 / 0.6% var(--dash) repeat-y,
+    linear-gradient(rgba(248, 241, 228, 0.8), rgba(248, 241, 228, 0.8)) 3% 0 / 0.5% 100% no-repeat,
+    linear-gradient(rgba(248, 241, 228, 0.8), rgba(248, 241, 228, 0.8)) 97% 0 / 0.5% 100% no-repeat,
+    repeating-linear-gradient(to bottom, rgba(248, 241, 228, 0.78) 0 calc(var(--dash) * 0.4), transparent calc(var(--dash) * 0.4) var(--dash)) 26.5% 0 / 0.45% 100% no-repeat,
+    repeating-linear-gradient(to bottom, rgba(248, 241, 228, 0.78) 0 calc(var(--dash) * 0.4), transparent calc(var(--dash) * 0.4) var(--dash)) 73.5% 0 / 0.45% 100% no-repeat,
+    repeating-linear-gradient(to bottom, var(--color-amber) 0 calc(var(--dash) * 0.6), transparent calc(var(--dash) * 0.6) var(--dash)) 50% 0 / 0.8% 100% no-repeat,
+    linear-gradient(to right, #030822 0%, #0a1442 12%, #0d1850 50%, #0a1442 88%, #030822 100%);
+  /* Into the dark: the far road fades rather than ending. */
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 40%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 40%, transparent 100%);
+}
+
+/* The light page (lib/lite.ts) carries no 3D scene: the sky, the dawn, the
+   ground and the two lines are all it needs, and the road and everything
+   standing on it are what a phone with too little memory cannot hold. */
+html[data-lite] .nr-stage {
+  display: none;
+}
+
+/* Route numbers painted on the lane, stretched along it as road
+   lettering is, so they read from the cab. */
+.nr-paint {
+  transform-origin: 50% 0;
+  font-family: var(--font-display);
+  font-size: 9svh;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  color: rgba(232, 163, 61, 0.78);
+}
+
+/* Lamp posts along both edges, their arms reaching over the road. */
+.nr-lamp {
+  width: 0.9svh;
+  height: calc(55svh + 58svh);
+  background: linear-gradient(to right, #0d1a52, #3c5096 50%, #0d1a52);
+  border-radius: 0.4svh 0.4svh 0 0;
+}
+.nr-lamp::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: calc(var(--rw) * 0.12);
+  height: 0.7svh;
+  background: #2c3f82;
+}
+.nr-lamp::after {
+  content: "";
+  position: absolute;
+  top: 0.2svh;
+  width: 4svh;
+  height: 1.2svh;
+  border-radius: 50%;
+  background: #ffd08a;
+  box-shadow:
+    0 0 1.5svh 0.4svh rgba(255, 190, 110, 0.9),
+    0 1svh 7svh 2.5svh rgba(255, 170, 80, 0.35);
+}
+.nr-lamp--l::before {
+  left: 0;
+}
+.nr-lamp--l::after {
+  left: calc(var(--rw) * 0.12 - 3svh);
+}
+.nr-lamp--r::before {
+  right: 0;
+}
+.nr-lamp--r::after {
+  right: calc(var(--rw) * 0.12 - 3svh);
+}
+
+/* The gantry: a beam across the road on two posts, and the signs. */
+.nr-gantry {
+  width: calc(var(--rw) * 1.04);
+  height: calc(50svh + 58svh);
+  border-top: 2.4svh solid #2c3f82;
+}
+.nr-gantry::before,
+.nr-gantry::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1.8svh;
+  background: linear-gradient(to right, #0d1a52, #3c5096 50%, #0d1a52);
+}
+.nr-gantry::before {
+  left: 1%;
+}
+.nr-gantry::after {
+  right: 1%;
+}
+.nr-sign {
+  position: absolute;
+  top: 1.5svh;
+  left: 52%;
+  /* At least its share of the road, and never narrower than its words:
+     the road follows the screen's width and the type its height, so on
+     a tall screen the type would outgrow a share of the road alone. */
+  width: max-content;
+  min-width: 27%;
+  min-height: 24svh;
+  padding: 2.4svh 3svh;
+  border: 0.7svh solid var(--color-cream);
+  border-radius: 1.4svh;
+  background: var(--color-navy-deep);
+  box-shadow: 0 0 0 0.5svh var(--color-navy-deep);
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+.nr-sign--exit {
+  left: 21%;
+  min-width: 22%;
+}
+.nr-sign ul {
+  margin: 1.6svh 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 3.6svh;
+  line-height: 1.35;
+}
+.nr-sign li {
+  display: flex;
+  justify-content: space-between;
+  gap: 2svh;
+  /* A place and its distance are one line on a real sign. */
+  white-space: nowrap;
+}
+.nr-sign b {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--color-amber);
+}
+.nr-shield {
+  display: inline-block;
+  padding: 0.4svh 1.4svh;
+  border-radius: 0.8svh;
+  background: var(--color-amber);
+  color: var(--color-navy-deep);
+  font-size: 3svh;
+  letter-spacing: 0.02em;
+}
+.nr-arrow {
+  position: absolute;
+  top: 1.6svh;
+  right: 2.6svh;
+  font-size: 5svh;
+  line-height: 1;
+  color: var(--color-cream);
+}
+
+.nr-tanker {
+  width: 36svh;
+  height: 52svh;
+}
+.nr-tanker svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.nr-chains {
+  transform-origin: 50% 240px;
+  animation: nr-chains 0.9s ease-in-out infinite alternate;
+}
+@keyframes nr-chains {
+  from {
+    transform: skewX(-6deg);
+  }
+  to {
+    transform: skewX(6deg);
+  }
+}
+
+/* The destination: the amber dot on the horizon, which the dawn lights. */
+.nr-dest {
+  --dawn: 0;
+  position: absolute;
+  top: var(--hz);
+  left: 50%;
+  width: 0;
+  height: 0;
+}
+.nr-dest i {
+  position: absolute;
+  left: -0.9svh;
+  top: -0.9svh;
+  width: 1.8svh;
+  height: 1.8svh;
+  border-radius: 50%;
+  background: var(--color-amber);
+  box-shadow:
+    0 0 calc(2svh + 6svh * var(--dawn)) calc(0.5svh + 3svh * var(--dawn)) rgba(255, 190, 110, calc(0.6 + 0.3 * var(--dawn)));
+}
+.nr-dest i::after {
+  content: "";
+  position: absolute;
+  inset: -0.9svh;
+  border: 2px solid var(--color-amber);
+  border-radius: 50%;
+  animation: nr-ring 2.4s ease-out infinite;
+}
+@keyframes nr-ring {
+  from {
+    transform: scale(0.6);
+    opacity: 0.9;
+  }
+  to {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+/* The cab's own headlights on the road ahead. */
+.nr-beams {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 45%;
+  background: radial-gradient(ellipse 45% 70% at 50% 110%, rgba(255, 226, 170, 0.16), transparent 70%);
+  pointer-events: none;
+}
+
+/* The two lines, in the sky, one after the other. */
+.nr-copy {
+  position: absolute;
+  top: 8svh;
+  left: var(--page-pad);
+  right: var(--page-pad);
+}
+.nr-line {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: min(calc(56 * var(--u)), 8.4vw);
+  font-weight: 700;
+  line-height: 1.04;
+  letter-spacing: -0.03em;
+  text-shadow: 0 0.1em 0.6em rgba(1, 12, 52, 0.6);
+}
+.nr-line--dawn {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.nr-w {
+  display: inline-block;
+  white-space: pre;
+}
+
+@media (max-width: 900px) {
+  .nr {
+    --rw: max(150vw, 120svh);
+  }
+  .nr-copy {
+    top: 9svh;
+  }
+  .nr-line br {
+    display: none;
+  }
+}
+
+/* Reduced motion: one still frame of the drive, no hold, both lines. */
+@media (prefers-reduced-motion: reduce) {
+  .nr {
+    height: 100svh;
+  }
+  .nr-view {
+    position: relative;
+  }
+  .nr-line--dawn {
+    position: static;
+    margin-top: 0.6em;
+    font-size: min(calc(34 * var(--u)), 6vw);
+  }
+  .nr-chains,
+  .nr-dest i::after {
+    animation: none;
+  }
+}
+
+/* The flood's surface (FloodEdge.tsx): drawn above the panel's top
+   edge, its foot overlapping the panel so the two meet in the same navy. */
+.flood-edge {
+  position: absolute;
+  /* Over the night run, which is positioned and would otherwise cover the
+     foot, cutting the fade to navy off in a straight line. */
+  z-index: 1;
+  left: 0;
+  width: 100%;
+  top: calc(-1 * (var(--edge-h) - var(--edge-below)));
+  height: var(--edge-h);
+  overflow: visible;
+  pointer-events: none;
+}
+.flood-edge-lip {
+  fill: none;
+  stroke: var(--color-amber);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.flood-edge-lip--glow {
+  stroke-width: 10;
+  opacity: 0.55;
+}
+
+/* Reduced motion: no hold and no travel. The hero scrolls with the page
+   and the flood is drawn up over its lower part -- ScrollTransition
+   cross-fades it in as the hero leaves. A layer sliding over a held one is exactly the
+   parallax-style motion this preference asks to be spared. */
+@media (prefers-reduced-motion: reduce) {
+  .hero-track > .hero {
+    position: relative;
+  }
+  .hero-flood {
+    margin-top: -40svh;
+  }
+}
+
+/* Cream type on a cream section is no type at all. The logo is drawn
+   twice: cream, and an ink copy on top of it -- its own file, so the
+   road's amber stays amber on either ground. ScrollTransition clips the
+   ink copy to exactly the part of the logo over a light ground, so where
+   a section edge crosses the logo it is split along that edge, cream over
+   the dark and ink over the light. Hidden until the script has placed it. */
+#site-header .logo-ink {
+  position: absolute;
+  top: 0;
+  left: 0;
+  clip-path: inset(0 0 100% 0);
+}
+
+/* The light section the flood hands off to. Its background matches the
+   bottom of the ramp exactly, so the seam where the pin releases is not
+   a seam. */
+.section-light {
+  background: var(--color-cream);
+  color: var(--color-navy-deep);
+}
+
+/* ---- Ship to shelf (Approach.tsx, ShipToShelf.tsx) --------------- *
+ *
+ * The light section as one argument, top to bottom: the statement, the
+ * chain it describes, then the map and the plain-type reasons. The chain
+ * is five stations on a line; the stretch from berth to gate is ours and
+ * drawn as amber chain links, the sea before it and the market after it
+ * as dashed line. A drop runs the line to --p (0..1, set by Approach from
+ * the scroll) and each station lights as it arrives. Without script, or
+ * with reduced motion, the chain stands run and lit.
+ * ------------------------------------------------------------------ */
+.sts {
+  --p: 1;
+  --ink: var(--color-navy-deep);
+  --faint: #c9c2b3;
+  --link-h: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='14' viewBox='0 0 30 14'%3E%3Crect x='1.5' y='2.5' width='17' height='9' rx='4.5' fill='none' stroke='%23e8a33d' stroke-width='2.2'/%3E%3Crect x='15' y='5.6' width='14' height='2.8' rx='1.4' fill='none' stroke='%23e8a33d' stroke-width='2.2'/%3E%3C/svg%3E");
+  --link-h-faint: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='14' viewBox='0 0 30 14'%3E%3Crect x='1.5' y='2.5' width='17' height='9' rx='4.5' fill='none' stroke='%23c9c2b3' stroke-width='2.2'/%3E%3Crect x='15' y='5.6' width='14' height='2.8' rx='1.4' fill='none' stroke='%23c9c2b3' stroke-width='2.2'/%3E%3C/svg%3E");
+  --link-v: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='30' viewBox='0 0 14 30'%3E%3Crect x='2.5' y='1.5' width='9' height='17' rx='4.5' fill='none' stroke='%23e8a33d' stroke-width='2.2'/%3E%3Crect x='5.6' y='15' width='2.8' height='14' rx='1.4' fill='none' stroke='%23e8a33d' stroke-width='2.2'/%3E%3C/svg%3E");
+  --link-v-faint: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='30' viewBox='0 0 14 30'%3E%3Crect x='2.5' y='1.5' width='9' height='17' rx='4.5' fill='none' stroke='%23c9c2b3' stroke-width='2.2'/%3E%3Crect x='5.6' y='15' width='2.8' height='14' rx='1.4' fill='none' stroke='%23c9c2b3' stroke-width='2.2'/%3E%3C/svg%3E");
+  margin: calc(84 * var(--u)) 0 calc(96 * var(--u));
+}
+.sts-title {
+  margin: 0 0 calc(64 * var(--u));
+  font-family: var(--font-mono);
+  font-size: calc(16 * var(--u));
+  letter-spacing: 0.06em;
+  color: var(--color-navy);
+}
+.sts-title b {
+  font-weight: 700;
+  color: var(--ink);
+}
+.sts-chain {
+  position: relative;
+}
+
+/* The line runs through the middle of the icons, from the first
+   station's centre to the last's: five equal columns put those at 10%
+   and 90%, and the stations at every 20% between. */
+.sts-track {
+  --icon: calc(84 * var(--u));
+  position: absolute;
+  top: calc(var(--icon) / 2);
+  left: 10%;
+  right: 10%;
+  height: 14px;
+  margin-top: -7px;
+}
+.sts-line {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr;
+  align-items: center;
+}
+.sts-line--fill {
+  clip-path: inset(0 calc((1 - var(--p)) * 100%) 0 0);
+}
+.sts-seg {
+  display: block;
+  height: 2px;
+  background: repeating-linear-gradient(to right, var(--faint) 0 7px, transparent 7px 13px);
+}
+.sts-seg--ours {
+  height: 14px;
+  background: var(--link-h-faint) left center / 30px 14px repeat-x;
+}
+.sts-line--fill .sts-seg {
+  background-image: repeating-linear-gradient(to right, var(--color-navy) 0 7px, transparent 7px 13px);
+}
+.sts-line--fill .sts-seg--ours {
+  background: var(--link-h) left center / 30px 14px repeat-x;
+  filter: drop-shadow(0 0 5px rgba(232, 163, 61, 0.55));
+}
+/* Over our stretch, clear above the tanker's disc. */
+.sts-label {
+  position: absolute;
+  bottom: calc(50% + var(--icon) / 2 + 16 * var(--u));
+  left: 50%;
+  translate: -50% 0;
+  padding: calc(4 * var(--u)) calc(10 * var(--u));
+  border-radius: 999px;
+  background: var(--color-amber);
+  color: var(--color-navy-deep);
+  font-family: var(--font-mono);
+  font-size: calc(10.5 * var(--u));
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+/* The drop: carried along the line by translating a full-width runner,
+   so nothing is laid out as it moves. */
+.sts-drop-run {
+  position: absolute;
+  inset: 0;
+  transform: translateX(calc(var(--p) * 100%));
+  pointer-events: none;
+}
+.sts-drop {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: calc(16 * var(--u));
+  height: calc(16 * var(--u));
+  margin: calc(-8 * var(--u)) 0 0 calc(-8 * var(--u));
+  border-radius: 50% 50% 50% 0;
+  rotate: -45deg;
+  background: radial-gradient(circle at 35% 35%, #ffd08a, var(--color-amber) 55%, #b8741f);
+  box-shadow: 0 0 0 5px rgba(232, 163, 61, 0.18), 0 0 18px rgba(232, 163, 61, 0.7);
+}
+
+.sts-stations {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: calc(18 * var(--u));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-align: center;
+}
+.sts-station {
+  --lit: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+/* Lit unless the drop is running and has yet to reach it. */
+.sts-chain[data-run] .sts-station:not([data-lit]) {
+  --lit: 0;
+}
+/* The icon sits in a disc that covers the line behind it; lit, it fills
+   with ink and the icon turns cream. Ours fills amber. */
+.sts-icon {
+  display: grid;
+  place-items: center;
+  width: calc(84 * var(--u));
+  height: calc(84 * var(--u));
+  margin-bottom: calc(22 * var(--u));
+  border-radius: 50%;
+  background: var(--color-cream);
+  box-shadow: inset 0 0 0 1.5px var(--faint);
+  color: #9c9585;
+  transition:
+    background-color 500ms var(--faq-open, ease),
+    box-shadow 500ms ease,
+    color 400ms ease,
+    transform 600ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.sts-icon svg {
+  width: 58%;
+  height: 58%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.sts-chain:not([data-run]) .sts-icon,
+.sts-station[data-lit] .sts-icon {
+  background: var(--ink);
+  box-shadow: inset 0 0 0 1.5px var(--ink), 0 14px 28px -14px rgba(11, 20, 51, 0.6);
+  color: var(--color-cream);
+  transform: translateY(calc(-4 * var(--u)));
+}
+/* Ours is the chain's one link in colour, and a size up. */
+.sts-station--ours .sts-icon {
+  box-shadow: inset 0 0 0 2px rgba(232, 163, 61, 0.55);
+  color: var(--color-amber);
+  transform: scale(1.16);
+}
+.sts-chain:not([data-run]) .sts-station--ours .sts-icon,
+.sts-station--ours[data-lit] .sts-icon {
+  transform: translateY(calc(-4 * var(--u))) scale(1.16);
+  background: var(--color-amber);
+  box-shadow: 0 0 0 7px rgba(232, 163, 61, 0.2), 0 16px 32px -12px rgba(184, 116, 31, 0.7);
+  color: var(--color-navy-deep);
+}
+.sts-tag {
+  font-family: var(--font-mono);
+  font-size: calc(10.5 * var(--u));
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-navy);
+  opacity: calc(0.45 + 0.4 * var(--lit));
+  transition: opacity 400ms ease;
+}
+.sts-station--ours .sts-tag {
+  color: #b8741f;
+  opacity: 1;
+}
+.sts-name {
+  margin: calc(8 * var(--u)) 0 calc(8 * var(--u));
+  font-family: var(--font-display);
+  font-size: calc(21 * var(--u));
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+.sts-body {
+  max-width: 22ch;
+  margin: 0;
+  font-size: calc(14 * var(--u));
+  line-height: 1.55;
+  color: var(--color-navy);
+  opacity: calc(0.55 + 0.3 * var(--lit));
+  transition: opacity 400ms ease;
+}
+
+/* Below the chain: the map and the reasons, side by side, tops level. */
+.ap-foot {
+  display: grid;
+  grid-template-columns: minmax(0, calc(320 * var(--u))) minmax(0, 1fr);
+  align-items: start;
+  gap: clamp(40 * var(--u), 7vw, 130 * var(--u));
+}
+.ap-body {
+  max-width: 54ch;
+  margin: 0;
+  font-size: calc(18 * var(--u));
+  line-height: 1.7;
+  color: var(--color-navy);
+}
+
+/* Phones: the chain stands on its end, down the left, each station a
+   row: icon, then its words. */
+@media (max-width: 900px) {
+  .sts {
+    margin: 48px 0 56px;
+  }
+  .sts-track {
+    --icon: 64px;
+    top: calc(var(--icon) / 2);
+    bottom: calc(var(--icon) / 2);
+    left: calc(var(--icon) / 2);
+    right: auto;
+    width: 14px;
+    height: auto;
+    margin: 0 0 0 -7px;
+  }
+  .sts-line {
+    grid-template-columns: none;
+    grid-template-rows: 1fr 2fr 1fr;
+    justify-items: center;
+  }
+  .sts-line--fill {
+    clip-path: inset(0 0 calc((1 - var(--p)) * 100%) 0);
+  }
+  .sts-seg {
+    width: 2px;
+    height: 100%;
+    background: repeating-linear-gradient(to bottom, var(--faint) 0 7px, transparent 7px 13px);
+  }
+  .sts-seg--ours {
+    width: 14px;
+    background: var(--link-v-faint) center top / 14px 30px repeat-y;
+  }
+  .sts-line--fill .sts-seg {
+    background-image: repeating-linear-gradient(to bottom, var(--color-navy) 0 7px, transparent 7px 13px);
+  }
+  .sts-line--fill .sts-seg--ours {
+    background: var(--link-v) center top / 14px 30px repeat-y;
+  }
+  .sts-label {
+    display: none;
+  }
+  .sts-title {
+    margin-bottom: 32px;
+    font-size: 14px;
+  }
+  .sts-drop-run {
+    transform: translateY(calc(var(--p) * 100%));
+  }
+  .sts-drop {
+    top: 0;
+    left: 50%;
+  }
+  .sts-stations {
+    grid-template-columns: 1fr;
+    gap: 26px;
+    text-align: left;
+  }
+  .sts-station {
+    display: grid;
+    grid-template-columns: 64px 1fr;
+    column-gap: 18px;
+    align-items: start;
+  }
+  .sts-icon {
+    grid-row: span 3;
+    width: 64px;
+    height: 64px;
+    margin: 0;
+  }
+  .sts-name {
+    margin: 4px 0;
+    font-size: 19px;
+  }
+  .sts-body {
+    max-width: none;
+    font-size: 14px;
+  }
+  .ap-foot {
+    grid-template-columns: 1fr;
+    gap: 36px;
+  }
+  .ap-body {
+    font-size: 15px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sts-icon,
+  .sts-tag,
+  .sts-body {
+    transition: none;
+  }
+}
+
+/* The corridor map: a small piece of the hero, on the hero's own ground.
+   The navy runs to a slightly deeper corner so the card has the hero's
+   depth without its shader, and the amber wash sits over Sindh, where the
+   route spends most of its length. */
+.corridor-card {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: calc(14 * var(--u));
+  background: linear-gradient(160deg, var(--color-navy) 0%, #011866 55%, var(--color-navy-deep) 100%);
+  box-shadow: 0 18px 40px -18px rgba(11, 20, 51, 0.55);
+}
+.corridor-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 45% 55% at 52% 55%, rgba(232, 163, 61, 0.12) 0%, rgba(232, 163, 61, 0) 70%);
+}
+/* Scaled down with the map, labels would shrink to nothing; in the card's
+   units they are set back up to the hero's reading size. */
+.corridor-label {
+  font-size: 15px;
+  opacity: 0.8;
+}
+/* Bottom right, over the empty ground east of the border. */
+.corridor-legs {
+  position: absolute;
+  right: calc(14 * var(--u));
+  bottom: calc(12 * var(--u));
+  display: flex;
+  gap: calc(6 * var(--u));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-mono);
+  font-size: calc(10 * var(--u));
+  letter-spacing: 0.06em;
+  color: var(--color-amber);
+}
+.corridor-legs li {
+  padding: calc(3 * var(--u)) calc(7 * var(--u));
+  border: 1px solid rgba(232, 163, 61, 0.45);
+  border-radius: 999px;
+}
+
+/* ------------------------------------------------------------------ *
+ * Site nav (SiteNav.tsx), modelled on rekorderstudios.com, at about 85%
+ * of the reference's size: a 310x34 pill at rest; open, a 178px tab over
+ * a 540x58 bar of four 42px tiles on an 8px grid. The motion is a critically damped spring's shape -- fast out,
+ * long settle, no overshoot -- as one curve for every piece, so the tab,
+ * bar and tiles move as one object.
+ * ------------------------------------------------------------------ */
+.site-nav {
+  /* Dark liquid glass: deep navy over a blur of whatever it floats on,
+     cream type, and the flood's amber lip along its lower edge -- so it
+     holds its own on the navy hero, the amber tank and the cream
+     sections alike. The current tile is lit amber. */
+  --nav-bg: rgba(6, 12, 37, 0.8);
+  --nav-fg: var(--color-cream);
+  --nav-lip: inset 0 -2px 0 var(--color-amber);
+  --nav-rim: inset 0 0 0 1px rgba(216, 227, 255, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  --nav-w: calc(310 * var(--u));
+  --nav-w-open: calc(540 * var(--u));
+  --tab-w-open: calc(178 * var(--u));
+  --bar-top: calc(29 * var(--u));
+  --bar-h: calc(58 * var(--u));
+  --pill-h: calc(34 * var(--u));
+  position: fixed;
+  /* Centred on the header's line, level with the logo beside it. */
+  top: calc(var(--header-mid) - var(--pill-h) / 2);
+  left: 50%;
+  z-index: 4;
+  width: var(--nav-w);
+  height: var(--pill-h);
+  transform: translateX(-50%);
+}
+.site-nav[data-open] {
+  width: var(--nav-w-open);
+  height: calc(var(--bar-top) + var(--bar-h));
+}
+
+.site-nav__tab,
+.site-nav__bar {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: var(--nav-w);
+  height: var(--pill-h);
+  background: var(--nav-bg);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(14px) saturate(140%);
+  border-radius: calc(9 * var(--u));
+  /* A cream rim for the glass's edge, the amber lip under it, a soft
+     amber glow off the lip and a lift off the page. */
+  box-shadow:
+    var(--nav-rim),
+    var(--nav-lip),
+    0 4px 16px -6px rgba(232, 163, 61, 0.35),
+    0 8px 24px -12px rgba(1, 8, 32, 0.6);
+  transition:
+    width var(--nav-dur) var(--nav-spring),
+    height var(--nav-dur) var(--nav-spring),
+    top var(--nav-dur) var(--nav-spring);
+}
+
+/* The tab is the pill at rest and draws in around the wordmark when
+   open, overlapping the bar by 10px so the two read as one shape. */
+.site-nav__tab {
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 0;
+  padding: 0;
+  color: var(--nav-fg);
+  cursor: pointer;
+}
+.site-nav[data-open] .site-nav__tab {
+  width: var(--tab-w-open);
+  /* Down to the bar's top edge and a pixel past it, square at the
+     bottom: it covers the bar's hairline where they meet, so the two
+     outlines join into one shape. The overlapping 10px of the old
+     measure was invisible when both were one flat colour; outlined, it
+     showed. */
+  height: calc(var(--bar-top) + 1px);
+  border-radius: calc(9 * var(--u)) calc(9 * var(--u)) 0 0;
+  /* Joined to the bar, the tab's outline stops at the seam: top and
+     sides only, no lip (the bar carries it now) and no shadow falling
+     across the links. */
+  box-shadow:
+    inset 1px 0 0 rgba(216, 227, 255, 0.12),
+    inset -1px 0 0 rgba(216, 227, 255, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+.site-nav__tab:focus-visible {
+  outline: 2px solid var(--color-amber);
+  outline-offset: 3px;
+}
+.site-nav__wordmark {
+  display: block;
+  width: calc(116 * var(--u));
+  height: auto;
+  /* The navy wordmark, turned cream for the dark glass. */
+  filter: brightness(0) invert(95%) sepia(9%) saturate(420%) hue-rotate(345deg);
+}
+/* The dot hints there's more; it slides out past the tab's edge as the
+   tab draws in, and is clipped by it. */
+.site-nav__toggle-dot {
+  position: absolute;
+  top: 50%;
+  right: calc(11 * var(--u));
+  width: calc(6 * var(--u));
+  height: calc(6 * var(--u));
+  margin-top: calc(-3 * var(--u));
+  border-radius: 50%;
+  background: var(--color-amber);
+  box-shadow: 0 0 8px rgba(232, 163, 61, 0.8);
+  transition:
+    transform var(--nav-dur) var(--nav-spring),
+    opacity 0.2s ease;
+}
+.site-nav[data-open] .site-nav__toggle-dot {
+  transform: translateX(calc(24 * var(--u)));
+  opacity: 0;
+}
+
+/* ---- The docked logo --------------------------------------------- *
+ * Away from the top of the page the header floats over the content, and
+ * the bare logo ran into headlines. So past the auto-hide's own threshold
+ * (HeaderAutoHide sets data-docked) the ZG mark leaves its corner and
+ * docks into the pill, before the name, behind a hairline: the header
+ * becomes one piece of glass that nothing shows through.
+ *
+ * Nothing is laid out again. The mark is placed where it will sit and
+ * only faded and moved in, and the name steps aside by half the mark's
+ * width with `translate`, so the pair stays centred in the pill. All on
+ * the nav's spring. While the menu is open the tab draws in round the
+ * name alone, so the mark steps out again until it closes. Desktop
+ * only: on a phone there is no logo in the corner to dock.
+ * ------------------------------------------------------------------ */
+.site-nav {
+  --mark-h: calc(var(--pill-h) * 0.58);
+  --mark-w: calc(var(--mark-h) * 630 / 310);
+  --mark-gap: calc(10 * var(--u));
+  /* The mark, a gap, the hairline and a gap: what the name makes room for. */
+  --mark-group: calc(var(--mark-w) + 2 * var(--mark-gap) + 1px);
+  --name-w: calc(116 * var(--u));
+}
+.site-nav__mark {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: var(--mark-gap);
+  height: var(--mark-h);
+  margin: calc(var(--mark-h) / -2) 0 0 calc((var(--mark-group) + var(--name-w)) / -2);
+  opacity: 0;
+  translate: calc(-8 * var(--u)) 0;
+  scale: 0.8;
+  transform-origin: right center;
+  pointer-events: none;
+  transition:
+    opacity 180ms ease,
+    translate var(--nav-dur) var(--nav-spring),
+    scale var(--nav-dur) var(--nav-spring);
+}
+.site-nav__mark img {
+  display: block;
+  width: auto;
+  height: 100%;
+}
+.site-nav__mark i {
+  width: 1px;
+  height: 64%;
+  background: rgba(216, 227, 255, 0.28);
+}
+.site-nav__wordmark {
+  transition: translate var(--nav-dur) var(--nav-spring);
+}
+/* The corner logo, leaving: a fade and a slight fall back, then out of
+   reach, so it can't be clicked or focused while it isn't there. */
+#site-header > a {
+  transform-origin: left center;
+  transition:
+    opacity 320ms ease 60ms,
+    transform var(--nav-dur) var(--nav-spring),
+    visibility 0s linear 0s;
+}
+@media (min-width: 901px) {
+  :root[data-docked] .site-nav:not([data-open]) .site-nav__mark {
+    opacity: 1;
+    translate: 0 0;
+    scale: 1;
+    transition:
+      opacity 320ms ease 80ms,
+      translate var(--nav-dur) var(--nav-spring),
+      scale var(--nav-dur) var(--nav-spring);
+  }
+  :root[data-docked] .site-nav:not([data-open]) .site-nav__wordmark {
+    translate: calc(var(--mark-group) / 2) 0;
+  }
+  :root[data-docked] #site-header > a {
+    opacity: 0;
+    transform: scale(0.9);
+    visibility: hidden;
+    pointer-events: none;
+    transition:
+      opacity 200ms ease,
+      transform var(--nav-dur) var(--nav-spring),
+      visibility 0s linear 200ms;
+  }
+}
+
+.site-nav__bar {
+  z-index: 1;
+  overflow: hidden;
+}
+.site-nav[data-open] .site-nav__bar {
+  top: var(--bar-top);
+  width: 100%;
+  height: var(--bar-h);
+}
+
+.site-nav__items {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: calc(8 * var(--u));
+  width: var(--nav-w-open);
+  max-width: 100%;
+  padding: calc(8 * var(--u));
+  margin: 0 auto;
+}
+@media (min-width: 901px) {
+  .site-nav__items {
+    /* Pinned to the open width and centred, so the tiles are laid out at
+       their final size while the bar is still opening round them -- not
+       squeezed to the closed pill's width, which is what the highlight
+       would otherwise measure. */
+    position: absolute;
+    top: 0;
+    left: 50%;
+    max-width: none;
+    transform: translateX(-50%);
+  }
+}
+
+/* Tiles fade in left to right once the bar has mostly opened, and all
+   drop out at once on close. */
+.site-nav__item {
+  position: relative;
+  display: block;
+  height: calc(42 * var(--u));
+  overflow: hidden;
+  border-radius: calc(8 * var(--u));
+  color: var(--nav-fg);
+  font-family: var(--font-mono);
+  font-size: calc(11 * var(--u));
+  line-height: 1.2;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+  /* Closed: a touch low and out of focus, so opening reads as the tiles
+     rising up through the glass. Closing drops them at once. */
+  opacity: 0;
+  transform: translateY(8px);
+  filter: blur(3px);
+  pointer-events: none;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease,
+    filter 0.15s ease,
+    color 0.25s ease;
+}
+.site-nav[data-open] .site-nav__item {
+  opacity: 1;
+  transform: none;
+  filter: none;
+  pointer-events: auto;
+  transition:
+    opacity 0.4s ease calc(0.18s + var(--i) * 0.06s),
+    transform 0.55s var(--nav-spring) calc(0.18s + var(--i) * 0.06s),
+    filter 0.4s ease calc(0.18s + var(--i) * 0.06s),
+    color 0.25s ease;
+}
+/* The lit tile's type turns navy as the highlight arrives under it. */
+.site-nav__item[data-lit] {
+  color: var(--color-navy-deep);
+}
+
+/* The one highlight: an amber tile gliding between the links on a
+   spring (SiteNav). It shows once the bar is open, after the first tiles
+   have risen, and goes at once on close. It is placed against the grid
+   of links, which is absolutely positioned on desktop and needs to be
+   positioned on phones too. */
+@media (max-width: 900px) {
+  .site-nav__items {
+    position: relative;
+  }
+}
+.site-nav__item {
+  z-index: 1;
+}
+.site-nav__glide {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  border-radius: calc(8 * var(--u));
+  background: linear-gradient(180deg, #f0b04e 0%, var(--color-amber) 60%, #d98f2e 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 231, 189, 0.7),
+    0 6px 18px -8px rgba(232, 163, 61, 0.8);
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform;
+  transition: opacity 0.15s ease;
+}
+.site-nav[data-open] .site-nav__glide {
+  opacity: 1;
+  transition: opacity 0.35s ease 0.18s;
+}
+
+/* ---- Header auto-hide (HeaderAutoHide.tsx) ----
+
+   On the way down the pill and the logo lift up and out; on the way back
+   up they drop in again. The individual `translate` property, not
+   `transform`, so it never fights the pill's own centring transform.
+   Leaving is quicker and plainer than arriving: the return is what the
+   reader is waiting for, so it settles with a spring's shape, the logo
+   a beat behind the pill so the two read as one header coming back. */
+.site-nav,
+#site-header {
+  translate: 0 0;
+  opacity: 1;
+  transition:
+    translate 560ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 320ms ease;
+}
+#site-header {
+  transition-delay: 60ms;
+}
+:root[data-chrome="hidden"] .site-nav,
+:root[data-chrome="hidden"] #site-header {
+  /* Its own height and the distance down to the header's line: clear of
+     the window, shadow and all. */
+  translate: 0 calc(-100% - var(--header-mid));
+  opacity: 0;
+  transition:
+    translate 380ms cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 260ms ease 60ms;
+}
+:root[data-chrome="hidden"] #site-header {
+  transition-delay: 30ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .site-nav,
+  #site-header,
+  :root[data-chrome="hidden"] .site-nav,
+  :root[data-chrome="hidden"] #site-header {
+    translate: none;
+    transition: opacity 200ms ease;
+  }
+}
+
+/* ---- The introduction (once a session, after the preloader) ---- */
+
+/* Oil run through the pill: a soft-edged amber band, parked off the left
+   until it plays. */
+.site-nav__oil {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(232, 163, 61, 0.75) 30%,
+    rgba(255, 208, 138, 0.95) 50%,
+    rgba(232, 163, 61, 0.75) 70%,
+    transparent 100%
+  );
+  transform: translateX(-105%);
+  pointer-events: none;
+}
+.site-nav__wordmark {
+  position: relative;
+  z-index: 1;
+}
+/* Rings off the dot. */
+.site-nav__ring {
+  position: absolute;
+  inset: 0;
+  border: 1.5px solid var(--color-amber);
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+}
+/* The peek: a strip of glass under the pill carrying the links' dots. */
+.site-nav__peek {
+  position: absolute;
+  top: calc(var(--pill-h) + 6 * var(--u));
+  left: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  width: calc(var(--nav-w) * 0.7);
+  height: calc(20 * var(--u));
+  padding: 0 calc(12 * var(--u));
+  border-radius: 999px;
+  background: var(--nav-bg);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  box-shadow: var(--nav-rim), var(--nav-lip);
+  transform: translateX(-50%);
+  clip-path: inset(0 0 100% 0);
+  pointer-events: none;
+}
+.site-nav__peek i {
+  width: calc(6 * var(--u));
+  height: calc(6 * var(--u));
+  border-radius: 50%;
+  background: var(--color-amber);
+  box-shadow: 0 0 6px rgba(232, 163, 61, 0.8);
+}
+.site-nav[data-open] .site-nav__peek {
+  visibility: hidden;
+}
+.site-nav__item:focus-visible {
+  outline: 2px solid var(--color-amber);
+  outline-offset: -2px;
+}
+
+/* Label, dot, label, stacked so that a 42px tile shows dot-over-label
+   at rest and, shifted down 20px, label-over-dot on hover -- each pair
+   centred in the tile. */
+.site-nav__roll {
+  position: absolute;
+  top: calc(-13.5 * var(--u));
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: translateX(-50%);
+  transition: transform var(--nav-dur) var(--nav-spring);
+}
+.site-nav__label {
+  display: block;
+  height: calc(13.2 * var(--u));
+}
+.site-nav__dot {
+  width: calc(8 * var(--u));
+  height: calc(8 * var(--u));
+  margin: calc(8 * var(--u)) 0 calc(5.5 * var(--u));
+  border-radius: 50%;
+  background: currentColor;
+}
+@media (hover: hover) {
+  .site-nav__item:hover .site-nav__roll {
+    transform: translate(-50%, calc(20 * var(--u)));
+  }
+}
+.site-nav__item:focus-visible .site-nav__roll {
+  transform: translate(-50%, calc(20 * var(--u)));
+}
+
+/* Phones: the pill runs the width of the screen, and opens into a
+   two-column grid under a narrower tab. */
+@media (max-width: 900px) {
+  /* No logo beside it here: the pill sits close to the top. */
+  .site-nav {
+    top: calc(10 * var(--u));
+    --nav-w: calc(100vw - 16 * var(--u));
+    --nav-w-open: calc(100vw - 16 * var(--u));
+    --tab-w-open: calc(160 * var(--u));
+    --bar-top: calc(34 * var(--u));
+    --bar-h: calc(108 * var(--u));
+  }
+  .site-nav__items {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-nav__mark,
+  :root[data-docked] .site-nav:not([data-open]) .site-nav__mark,
+  #site-header > a,
+  :root[data-docked] #site-header > a {
+    translate: none;
+    scale: none;
+    transform: none;
+  }
+  .site-nav__wordmark {
+    transition: none;
+  }
+  .site-nav__tab,
+  .site-nav__bar,
+  .site-nav__toggle-dot,
+  .site-nav__roll,
+  .site-nav__item,
+  .site-nav[data-open] .site-nav__item {
+    transition: none;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Services (Services.tsx, Pour.tsx)
+ *
+ * The deck is layout: the stage is sticky for the deck's whole length,
+ * so everything after it in the deck -- the spacer, then the contract
+ * carriage section -- scrolls up over it at scroll speed. The stage is a
+ * tank that fills as the page holds (see POUR in lib/motion.ts); the
+ * section has no ground of its own and rises through the liquid.
+ * ------------------------------------------------------------------ */
+
+:root {
+  --color-powder: #d0e6fd;
+}
+
+/* The deep: what the tank fills to, and what the section sits in. */
+.svc-deck {
+  position: relative;
+  background: var(--color-navy-deep);
+}
+
+.svc-stage {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  overflow: hidden;
+  background: var(--color-cream);
+}
+/* Under the liquid by now: navy for iOS Safari's top-bar tint, which
+   it takes from the pinned element's background. */
+.svc-stage--covered {
+  background: var(--color-navy-deep);
+}
+
+/* ---- The pour ---- */
+
+.pour {
+  position: absolute;
+  inset: 0;
+}
+.pour-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+/* Without WebGL: a flat panel of the same liquid, moved to the level. */
+.pour-fallback {
+  position: absolute;
+  inset: 0 0 auto;
+  height: calc(100% + 60svh);
+  background: linear-gradient(
+    180deg,
+    #ffe7bd 0,
+    #f3bb5c 2px,
+    #e39a35 10%,
+    #9a4a1e 25%,
+    #2a1830 41%,
+    var(--color-navy-deep) 55%
+  );
+  transform: translate3d(0, 104svh, 0);
+  will-change: transform;
+}
+.pour-ground {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transform: translate3d(0, 110%, 0);
+}
+
+.pour-ink {
+  position: absolute;
+  inset: 0;
+  color: var(--color-navy-deep);
+  pointer-events: none;
+}
+.pour-ink--sub {
+  color: var(--color-cream);
+  clip-path: polygon(0 110%, 100% 110%, 100% 120%, 0 120%);
+}
+.pour-eyebrow {
+  position: absolute;
+  top: 21svh;
+  left: var(--page-pad);
+  display: flex;
+  align-items: center;
+  gap: calc(14 * var(--u));
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: calc(13 * var(--u));
+  letter-spacing: 0.11em;
+}
+.pour-eyebrow i {
+  width: calc(34 * var(--u));
+  height: 1px;
+  flex-shrink: 0;
+  background: currentColor;
+  opacity: 0.5;
+}
+.pour-title {
+  position: absolute;
+  top: 50%;
+  left: var(--page-pad);
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: min(12.4vw, 23svh, 210 * var(--u));
+  font-weight: 700;
+  line-height: 0.9;
+  letter-spacing: -0.045em;
+  transform: translateY(-54%);
+}
+/* Each line rises out of its own mask; the mask runs below the line so
+   the g's descender isn't cut. */
+.pour-line {
+  display: block;
+  overflow: hidden;
+  padding-bottom: 0.14em;
+  margin-bottom: -0.14em;
+}
+.pour-line > span {
+  display: block;
+}
+.pour-caption {
+  position: absolute;
+  bottom: 9svh;
+  left: var(--page-pad);
+  max-width: 40ch;
+  margin: 0;
+  font-size: calc(14 * var(--u));
+  line-height: 1.65;
+  opacity: 0.78;
+}
+
+/* The gauge: marks down the right edge, a mark and a readout riding the
+   surface. */
+.pour-ruler {
+  position: absolute;
+  top: 14svh;
+  bottom: 0;
+  right: var(--page-pad);
+  width: calc(10 * var(--u));
+  opacity: 0.45;
+}
+/* A tick every twentieth, the quarters longer. */
+.pour-ruler::before,
+.pour-ruler::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 0 auto;
+  background: repeating-linear-gradient(180deg, currentColor 0 1px, transparent 1px calc(100% / 20));
+}
+.pour-ruler::before {
+  width: calc(5 * var(--u));
+}
+.pour-ruler::after {
+  width: calc(10 * var(--u));
+  background: repeating-linear-gradient(180deg, currentColor 0 1px, transparent 1px calc(100% / 4));
+}
+.pour-ruler span {
+  position: absolute;
+  right: calc(16 * var(--u));
+  font-family: var(--font-mono);
+  font-size: calc(10 * var(--u));
+  letter-spacing: 0.08em;
+  line-height: 1;
+  transform: translateY(-50%);
+}
+.pour-mark {
+  position: absolute;
+  top: 0;
+  right: calc(var(--page-pad) - 4 * var(--u));
+  width: calc(22 * var(--u));
+  height: 2px;
+  margin-top: -1px;
+  background: var(--color-amber);
+  box-shadow: 0 0 10px rgba(232, 163, 61, 0.7);
+  will-change: transform;
+}
+.pour-mark::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: calc(-7 * var(--u));
+  border: 5px solid transparent;
+  border-left: 6px solid var(--color-amber);
+  transform: translateY(-50%);
+}
+/* The readout: a chip of the nav's dark glass, floating on the surface
+   -- the script moves its top to the surface and it is drawn clear above
+   that -- and kept left of the ruler's figures. Its colours are its own,
+   not the ink layer's, so the navy and cream copies of it match exactly
+   and the edge where the words turn cream never cuts through it. */
+.pour-read {
+  position: absolute;
+  top: calc(-46 * var(--u));
+  right: calc(var(--page-pad) + 62 * var(--u));
+  display: flex;
+  align-items: center;
+  gap: calc(10 * var(--u));
+  height: calc(34 * var(--u));
+  margin: 0;
+  padding: 0 calc(14 * var(--u)) 0 calc(12 * var(--u));
+  border-radius: 999px;
+  background: rgba(6, 12, 37, 0.78);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow:
+    inset 0 0 0 1px rgba(216, 227, 255, 0.14),
+    inset 0 -2px 0 var(--color-amber),
+    0 8px 20px -10px rgba(1, 8, 32, 0.7);
+  color: var(--color-cream);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  transform: translate3d(0, 104svh, 0);
+  will-change: transform;
+}
+.pour-read-level {
+  font-size: calc(16 * var(--u));
+  font-weight: 700;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+.pour-read-status {
+  display: flex;
+  align-items: center;
+  font-size: calc(10 * var(--u));
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-mist);
+}
+.pour-read-status::before {
+  content: "";
+  display: inline-block;
+  width: calc(7 * var(--u));
+  height: calc(7 * var(--u));
+  margin-right: calc(8 * var(--u));
+  border-radius: 50%;
+  background: var(--color-amber);
+  box-shadow: 0 0 6px rgba(232, 163, 61, 0.8);
+  animation: pour-blink 1.1s ease-in-out infinite alternate;
+}
+.pour[data-status="sealed"] .pour-read-status::before {
+  background: #3ecf74;
+  box-shadow: 0 0 8px #3ecf74;
+  animation: none;
+}
+.pour[data-status="standby"] .pour-read-status::before {
+  animation: none;
+  opacity: 0.4;
+}
+@keyframes pour-blink {
+  to {
+    opacity: 0.2;
+  }
+}
+
+/* The pour's stretch of scroll: the fill runs over it (see POUR). */
+.svc-spacer {
+  height: 150svh;
+}
+
+/* The section has no ground: it sits in the tank's deep. */
+.svc-card {
+  position: relative;
+  z-index: 2;
+  min-height: 100svh;
+  color: var(--color-cream);
+}
+
+@media (max-width: 900px) {
+  .pour-eyebrow {
+    top: 17svh;
+  }
+  .pour-title {
+    font-size: min(15vw, 20svh);
+  }
+  .pour-caption {
+    right: var(--page-pad);
+    bottom: 7svh;
+    font-size: calc(13 * var(--u));
+  }
+  .pour-ruler {
+    right: calc(12 * var(--u));
+  }
+  .pour-ruler span {
+    display: none;
+  }
+  .pour-mark {
+    right: calc(8 * var(--u));
+    width: calc(14 * var(--u));
+  }
+  /* On a phone the readout holds still under the eyebrow (the script
+     leaves it unmoved), and only the mark rides the surface. */
+  .pour-read {
+    top: calc(17svh + 30 * var(--u));
+    right: auto;
+    left: var(--page-pad);
+    height: calc(30 * var(--u));
+    transform: none;
+  }
+  .pour-read-level {
+    font-size: calc(14 * var(--u));
+  }
+  .svc-spacer {
+    height: 130svh;
+  }
+}
+
+.svc-intro {
+  max-width: calc(1400 * var(--u));
+  margin: 0 auto;
+  padding: 18vh var(--page-pad) 6vh;
+}
+.svc-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: calc(14 * var(--u));
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: calc(13 * var(--u));
+  letter-spacing: 0.11em;
+  color: var(--color-amber);
+}
+.svc-eyebrow i {
+  width: calc(34 * var(--u));
+  height: 1px;
+  flex-shrink: 0;
+  background: var(--color-amber);
+  opacity: 0.7;
+}
+.svc-title {
+  margin: calc(28 * var(--u)) 0 calc(26 * var(--u));
+  font-family: var(--font-display);
+  font-size: clamp(40 * var(--u), 6vw, 88 * var(--u));
+  font-weight: 700;
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+}
+.svc-lede {
+  max-width: 52ch;
+  margin: 0;
+  font-size: calc(17 * var(--u));
+  line-height: 1.6;
+  color: var(--color-mist);
+}
+.svc-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(10 * var(--u));
+  margin: calc(36 * var(--u)) 0 0;
+  padding: 0;
+  list-style: none;
+}
+/* The cover flow's index: each chip brings its card forward, and the
+   one at the centre is lit in its own colour. */
+.svc-chips button {
+  display: flex;
+  align-items: center;
+  gap: calc(10 * var(--u));
+  padding: calc(7 * var(--u)) calc(14 * var(--u)) calc(7 * var(--u)) calc(9 * var(--u));
+  border: 1px solid rgba(216, 227, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(11, 20, 51, 0.35);
+  color: var(--color-mist);
+  font-family: var(--font-mono);
+  font-size: calc(12.5 * var(--u));
+  cursor: pointer;
+  transition:
+    background-color 200ms ease,
+    border-color 200ms ease,
+    color 200ms ease,
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.svc-chips button[aria-current="true"] {
+  border-color: var(--color-amber);
+  background: rgba(232, 163, 61, 0.14);
+  color: var(--color-cream);
+}
+.svc-chips button:active {
+  transform: scale(0.97);
+}
+.svc-chips button:focus-visible {
+  outline: 2px solid var(--color-amber);
+  outline-offset: 3px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .svc-chips button:not([aria-current="true"]):hover {
+    border-color: rgba(216, 227, 255, 0.45);
+    color: var(--color-cream);
+  }
+}
+.svc-chip-icon {
+  width: calc(24 * var(--u));
+  height: calc(24 * var(--u));
+  color: var(--color-powder);
+}
+
+/* ---- Cover flow (CargoCoverflow.tsx) ---- */
+
+.svc-flow {
+  max-width: calc(1400 * var(--u));
+  margin: 0 auto;
+  padding: 2vh 0 16vh;
+}
+.cf {
+  /* Room left above it when a chip brings it into view. */
+  scroll-margin-top: calc(90 * var(--u));
+  --cf-w: min(480 * var(--u), 78vw);
+  --cf-h: min(62svh, 520 * var(--u));
+}
+.cf-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: calc(24 * var(--u));
+  padding: 0 var(--page-pad);
+}
+.cf-count {
+  margin: calc(18 * var(--u)) 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(40 * var(--u), 4.4vw, 64 * var(--u));
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+.cf-count-of {
+  color: var(--color-mist);
+  opacity: 0.4;
+}
+.cf-arrows {
+  display: flex;
+  gap: calc(10 * var(--u));
+}
+.cf-arrow {
+  display: grid;
+  place-items: center;
+  width: calc(52 * var(--u));
+  height: calc(52 * var(--u));
+  border: 1px solid rgba(208, 230, 253, 0.35);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-powder);
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    opacity 0.2s ease,
+    transform 0.16s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.cf-arrow svg {
+  width: calc(20 * var(--u));
+  height: calc(20 * var(--u));
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+@media (hover: hover) and (pointer: fine) {
+  .cf-arrow:not(:disabled):hover {
+    background: var(--color-powder);
+    color: var(--color-navy-deep);
+  }
+}
+.cf-arrow:active:not(:disabled) {
+  transform: scale(0.95);
+}
+.cf-arrow:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.cf-arrow:focus-visible,
+.cf-names button:focus-visible {
+  outline: 2px solid var(--color-amber);
+  outline-offset: 3px;
+}
+
+/* The stage is wide and clips nothing vertically: the side cards turn
+   away into depth, so they need room either side, not above. Vertical
+   scrolling passes through on touch (pan-y); sideways drags are ours. */
+.cf-stage {
+  position: relative;
+  height: calc(var(--cf-h) + 8svh);
+  margin-top: 4svh;
+  overflow: hidden;
+  perspective: 1600px;
+  touch-action: pan-y;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.cf-stage[data-dragging] {
+  cursor: grabbing;
+}
+.cf-stage:focus-visible {
+  outline: 2px solid var(--color-amber);
+  outline-offset: -6px;
+  border-radius: calc(12 * var(--u));
+}
+/* Every card sits at the centre and is posed from there. The pose is
+   one transform, written every frame by the cover flow's spring (see
+   CargoCoverflow.tsx) -- so no CSS transition here, which would lag the
+   spring and the finger both. */
+.cf-card {
+  position: absolute;
+  top: 4svh;
+  left: 0;
+  right: 0;
+  width: var(--cf-w);
+  height: var(--cf-h);
+  margin: 0 auto;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+.cf-card[aria-hidden="true"] {
+  cursor: pointer;
+}
+/* Narrower than the old stack's cards, so the picture comes down a size
+   to keep clear of the name and its line. */
+.cf-card .svc-cargo-icon {
+  top: calc(44 * var(--u));
+  right: calc(22 * var(--u));
+  width: clamp(92 * var(--u), 15svh, 132 * var(--u));
+}
+.cf-card .svc-cargo-line {
+  max-width: 62%;
+}
+
+.cf-names {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: calc(6 * var(--u)) calc(22 * var(--u));
+  margin: 2svh 0 0;
+  padding: 0 var(--page-pad);
+  list-style: none;
+}
+.cf-names button {
+  display: flex;
+  gap: calc(10 * var(--u));
+  padding: calc(8 * var(--u)) 2px;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: none;
+  color: var(--color-mist);
+  font-family: var(--font-mono);
+  font-size: calc(13 * var(--u));
+  letter-spacing: 0.04em;
+  /* Quieter than the current name, and still 4.5:1 on the deep. */
+  opacity: 0.72;
+  cursor: pointer;
+  transition:
+    opacity 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+.cf-names button span {
+  color: var(--color-amber);
+}
+.cf-names button[aria-current] {
+  color: var(--color-cream);
+  border-bottom-color: var(--color-powder);
+  opacity: 1;
+}
+@media (hover: hover) and (pointer: fine) {
+  .cf-names button:hover {
+    opacity: 1;
+  }
+}
+
+.svc-cargo {
+  display: flex;
+  flex-direction: column;
+  padding: calc(26 * var(--u)) calc(30 * var(--u)) calc(28 * var(--u));
+  overflow: hidden;
+  border-radius: calc(22 * var(--u));
+  background: var(--color-powder);
+  color: var(--color-navy-deep);
+  box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.55);
+}
+.svc-cargo-head {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: calc(12 * var(--u));
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  /* As faint as it can be and still read (4.5:1 on the powder). */
+  opacity: 0.72;
+}
+/* Large, top right, where a heading's line leaves room: the card's
+   picture rather than a bullet beside its name. */
+.svc-cargo-icon {
+  position: absolute;
+  z-index: 1;
+  top: calc(54 * var(--u));
+  right: calc(26 * var(--u));
+  width: clamp(120 * var(--u), 22svh, 200 * var(--u));
+  height: auto;
+  color: var(--color-navy);
+}
+.svc-cargo-name {
+  margin: clamp(40 * var(--u), 9svh, 96 * var(--u)) 0 0;
+  max-width: 60%;
+  font-family: var(--font-display);
+  font-size: clamp(32 * var(--u), 3.8vw, 54 * var(--u));
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.035em;
+}
+.svc-cargo-line {
+  margin: calc(10 * var(--u)) 0 0;
+  font-family: var(--font-mono);
+  font-size: calc(13 * var(--u));
+  color: var(--color-navy);
+}
+.svc-cargo-body {
+  max-width: 44ch;
+  margin: calc(18 * var(--u)) 0 0;
+  font-size: calc(16 * var(--u));
+  line-height: 1.6;
+}
+.svc-cargo-specs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(8 * var(--u));
+  margin: auto 0 0;
+  padding: calc(18 * var(--u)) 0 0;
+  list-style: none;
+  font-family: var(--font-mono);
+  font-size: calc(11.5 * var(--u));
+}
+.svc-cargo-specs li {
+  padding: calc(6 * var(--u)) calc(11 * var(--u));
+  border: 1px solid rgba(11, 20, 51, 0.22);
+  border-radius: 999px;
+}
+.svc-cargo-shade {
+  position: absolute;
+  inset: 0;
+  background: var(--color-navy-deep);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ---- The load in each card (CargoFill.tsx) ---- */
+
+/* The card's words sit over its load. */
+.svc-cargo > :not(.cargo-fill):not(.svc-cargo-shade):not(.svc-cargo-icon) {
+  position: relative;
+  z-index: 1;
+}
+.svc-cargo-shade {
+  z-index: 2;
+}
+/* Legible over any load. */
+.svc-cargo-specs li {
+  background: rgba(248, 241, 228, 0.92);
+  border-color: rgba(11, 20, 51, 0.16);
+}
+.cargo-fill {
+  position: absolute;
+  inset: auto 0 0;
+  height: 30%;
+  touch-action: pan-y;
+}
+.cargo-fill svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.cargo-fill-lip {
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+.cargo-fill-bubble {
+  transition: opacity 120ms linear;
+}
+.cargo-fill-pallet {
+  fill: #7a5a30;
+}
+/* Brought forward, the cartons are set down course by course, and the
+   grain pours up into its heap. */
+.cargo-fill[data-active] .cargo-fill-carton {
+  animation: cargo-carton 620ms cubic-bezier(0.34, 1.3, 0.64, 1) both;
+  animation-delay: calc(var(--i) * 70ms + 120ms);
+}
+@keyframes cargo-carton {
+  from {
+    opacity: 0;
+    transform: translateY(-70%);
+  }
+  40% {
+    opacity: 1;
+  }
+}
+.cargo-fill-heap {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+.cargo-fill[data-active] .cargo-fill-heap {
+  animation: cargo-heap 1100ms cubic-bezier(0.22, 1, 0.36, 1) both 120ms;
+}
+@keyframes cargo-heap {
+  from {
+    transform: scale(0.35, 0.12);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cargo-fill[data-active] .cargo-fill-carton,
+  .cargo-fill[data-active] .cargo-fill-heap {
+    animation: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .svc-intro {
+    padding-top: 14vh;
+  }
+  .cf {
+    --cf-w: 80vw;
+    --cf-h: min(64svh, 520 * var(--u));
+  }
+  .cf-count {
+    font-size: calc(34 * var(--u));
+  }
+  .cf-arrow {
+    width: calc(44 * var(--u));
+    height: calc(44 * var(--u));
+  }
+  /* Five names don't fit a phone's width in one line; the counter above
+     already says where you are. */
+  .cf-names {
+    display: none;
+  }
+  .cf-card .svc-cargo-icon {
+    top: calc(40 * var(--u));
+    right: calc(16 * var(--u));
+    width: calc(76 * var(--u));
+  }
+  .cf-card .svc-cargo-name {
+    max-width: 66%;
+  }
+  .svc-cargo {
+    padding: calc(20 * var(--u)) calc(22 * var(--u)) calc(22 * var(--u));
+  }
+  .svc-cargo-body {
+    font-size: calc(14 * var(--u));
+  }
+  .svc-cargo-icon {
+    top: calc(46 * var(--u));
+    right: calc(18 * var(--u));
+    width: clamp(84 * var(--u), 14svh, 120 * var(--u));
+  }
+}
+
+/* Reduced motion: no hold and nothing scrubbed -- the tank is a still
+   picture, part-filled, and the section follows it. The cover flow
+   still works, but cards change places without travelling. */
+@media (prefers-reduced-motion: reduce) {
+  .svc-stage {
+    position: relative;
+  }
+  .svc-spacer {
+    display: none;
+  }
+  .pour-read-status::before {
+    animation: none;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Manifest preloader (/services) -- ManifestPreloader.tsx
+ *
+ * A bill of lading on continuous stationery, fed out of a dot-matrix
+ * printer. Every length inside the sheet is in em, from one base size
+ * that follows the viewport, so the whole document scales as one piece
+ * and fits a phone held upright. Timings: MANIFEST in lib/motion.ts.
+ * ------------------------------------------------------------------ */
+
+html.scroll-lock,
+html.scroll-lock body {
+  overflow: hidden;
+}
+
+/* The way out (lib/rescue.ts). When the page's script has not started, or
+   a component that reveals content has stopped, the preloaders come away,
+   the hero shows, and the scroll a preloader was holding is given back --
+   so a visitor is never left on a loading screen or a blank page. */
+html[data-rescue] #pre,
+html[data-rescue] #bl {
+  display: none !important;
+}
+html[data-rescue] .hero {
+  opacity: 1 !important;
+}
+html[data-rescue],
+html[data-rescue] body {
+  overflow-y: auto !important;
+}
+
+.bl {
+  --bl-w: min(600 * var(--u), calc(100vw - 32 * var(--u)));
+  --bl-ink: var(--color-navy-deep);
+  --bl-ok: #1f7a3f;
+  --bl-stamp: #1b44c8;
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(18 * var(--u), 3.2svh, 30 * var(--u));
+  padding: calc(16 * var(--u));
+  contain: layout paint;
+  cursor: progress;
+}
+
+/* Navy-deep ground carrying the site's hex dot grid, lit a little from
+   behind the sheet. Its own layer, so it can fade last and uncover the
+   page while the sheet is still in flight. */
+.bl-ground {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 50% at 50% 42%, rgba(36, 87, 255, 0.22), transparent 70%),
+    radial-gradient(circle, rgba(94, 115, 180, 0.22) 1px, transparent 1.6px) 0 0 / 15.2px 13.2px,
+    radial-gradient(circle, rgba(94, 115, 180, 0.22) 1px, transparent 1.6px) 7.6px 6.6px / 15.2px 13.2px,
+    var(--color-navy-deep);
+}
+
+.bl-stack {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* The slot: the sheet is clipped at the printer's top edge, and only
+   there -- it may rise as far as it likes above. */
+.bl-feed {
+  position: relative;
+  width: var(--bl-w);
+  clip-path: inset(-100vh -100vw 0 -100vw);
+}
+
+/* ---- The sheet ---- */
+
+.bl-sheet {
+  --edge: 2.9em; /* the tractor-feed margins */
+  position: relative;
+  font-family: var(--font-mono);
+  /* One base size for the document: shrinks with the width on a phone
+     and with the height on a short screen. */
+  font-size: min(12 * var(--u), calc(var(--bl-w) / 50), 1.62svh);
+  padding: 2.2em calc(var(--edge) + 1.4em) 2.4em;
+  background: var(--color-cream);
+  color: var(--bl-ink);
+  box-shadow:
+    0 1.5em 3em rgba(0, 0, 0, 0.35),
+    0 0.2em 0.5em rgba(0, 0, 0, 0.2);
+  translate: 0 101%; /* in the printer until script takes over */
+  will-change: transform;
+}
+/* Tractor-feed pin holes down both margins, and the perforation that
+   lets them be torn away. */
+.bl-sheet::before,
+.bl-sheet::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: var(--edge);
+  background: radial-gradient(circle, rgba(11, 20, 51, 0.82) 0.3em, transparent 0.34em) 50% 0.75em / 100% 1.5em repeat-y;
+}
+.bl-sheet::before {
+  left: 0;
+  border-right: 1px dashed rgba(11, 20, 51, 0.22);
+}
+.bl-sheet::after {
+  right: 0;
+  border-left: 1px dashed rgba(11, 20, 51, 0.22);
+}
+
+/* A line of type, clipped to its first --c characters. */
+.bl-t {
+  --c: 0;
+  position: relative;
+  display: inline-block;
+  white-space: pre;
+  vertical-align: top;
+}
+.bl-t-text {
+  display: block;
+  clip-path: inset(0 calc(100% - 100% * var(--c) / var(--n)) 0 0);
+}
+.bl-t-caret {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateX(calc(100% * var(--c) / var(--n)));
+}
+.bl-t-caret i {
+  position: absolute;
+  left: 0;
+  top: 0.08em;
+  bottom: 0.06em;
+  width: 0.6em;
+  background: var(--color-blue);
+  animation: bl-blink 0.8s steps(1) infinite;
+}
+@keyframes bl-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.bl-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5em;
+  padding-bottom: 1.1em;
+  border-bottom: 2px solid var(--bl-ink);
+}
+.bl-head p {
+  margin: 0;
+}
+.bl-kicker {
+  font-size: 0.78em;
+  letter-spacing: 0.16em;
+  opacity: 0.6;
+}
+.bl-title {
+  margin-top: 0.3em !important;
+  font-size: 2.2em;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.bl-ref {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.45em;
+  font-size: 0.86em;
+  letter-spacing: 0.06em;
+}
+.bl-code {
+  display: block;
+  width: 10em;
+  height: 2.1em;
+  fill: var(--bl-ink);
+}
+
+.bl-fields {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.9em 1.2em;
+  margin: 0;
+  padding: 1em 0;
+}
+.bl-fields dt {
+  font-size: 0.7em;
+  letter-spacing: 0.16em;
+  opacity: 0.5;
+}
+.bl-fields dd {
+  margin: 0.35em 0 0;
+  font-size: 0.95em;
+  font-weight: 700;
+}
+
+.bl-route {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  padding: 0.85em 1em;
+  border: 1px solid rgba(11, 20, 51, 0.18);
+  border-radius: 0.3em;
+  font-size: 0.86em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+.bl-route-track {
+  position: relative;
+  flex: 1;
+  height: 0.8em;
+  margin-inline: 0.7em;
+}
+.bl-rule {
+  display: block;
+  transform-origin: 0 50%;
+}
+.bl-route-dots,
+.bl-route-done {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  margin-top: -1px;
+  transform-origin: 0 50%;
+}
+.bl-route-dots {
+  background: radial-gradient(circle, rgba(11, 20, 51, 0.4) 1px, transparent 1.4px) 0 50% / 6px 2px repeat-x;
+}
+.bl-route-done {
+  background: var(--color-amber);
+  transform: scaleX(0);
+}
+.bl-route-truck {
+  position: absolute;
+  top: 50%;
+  left: -0.4em;
+  width: 0.8em;
+  height: 0.8em;
+  margin-top: -0.4em;
+  border-radius: 50%;
+  background: var(--color-amber);
+  box-shadow: 0 0 0 2px var(--color-cream), 0 0 0 3px var(--bl-ink);
+}
+
+/* The table: # / cargo / equipment / status. Rows alternate on faint
+   powder bands, the brand's take on green-bar stationery. */
+.bl-thead,
+.bl-row {
+  display: grid;
+  grid-template-columns: 2.6em 1fr 1.25fr 6.6em;
+  align-items: center;
+  column-gap: 0.8em;
+}
+.bl-thead {
+  position: relative;
+  margin-top: 1.1em;
+  padding: 0 0.7em 0.6em;
+  font-size: 0.72em;
+  letter-spacing: 0.16em;
+  opacity: 0.55;
+}
+.bl-thead .bl-rule {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: var(--bl-ink);
+}
+.bl-row {
+  padding: 0.75em 0.7em;
+  font-size: 1em;
+}
+.bl-row:nth-of-type(odd) {
+  background: color-mix(in oklab, var(--color-powder) 55%, transparent);
+}
+.bl-no {
+  opacity: 0.45;
+}
+.bl-cargo {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.bl-equip {
+  font-size: 0.86em;
+  opacity: 0.7;
+}
+.bl-ok {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 0.35em;
+  padding: 0.2em 0.5em;
+  border: 1.5px solid var(--bl-ok);
+  border-radius: 0.25em;
+  color: var(--bl-ok);
+  font-size: 0.78em;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+.bl-ok svg {
+  width: 1.1em;
+  height: 1.1em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.bl-foot {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5em;
+  margin-top: 1.4em;
+  padding-top: 0.6em;
+  border-top: 2px solid var(--bl-ink);
+}
+.bl-sign {
+  display: flex;
+  flex-direction: column;
+  width: 15em;
+}
+.bl-sign-art {
+  width: 100%;
+  height: 4em;
+  overflow: visible;
+}
+.bl-sign-path {
+  fill: none;
+  stroke: var(--color-blue);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.bl-sign-cap {
+  margin-top: 0.2em;
+  padding-top: 0.4em;
+  border-top: 1px dashed rgba(11, 20, 51, 0.4);
+  font-size: 0.7em;
+  letter-spacing: 0.16em;
+  opacity: 0.6;
+}
+.bl-total {
+  font-size: 0.82em;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+/* A rubber stamp: blue ink, doubled rim, and a speckle of paper showing
+   through where the ink didn't take. */
+.bl-stamp {
+  position: absolute;
+  right: calc(var(--edge) + 3.4em);
+  bottom: 2.6em;
+  padding: 0.45em 0.9em 0.5em;
+  border: 0.22em solid var(--bl-stamp);
+  outline: 1px solid var(--bl-stamp);
+  outline-offset: 0.2em;
+  border-radius: 0.4em;
+  color: var(--bl-stamp);
+  font-size: 2em;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  text-align: center;
+  mix-blend-mode: multiply;
+  opacity: 0;
+  visibility: hidden;
+  transform: rotate(-11deg);
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -2.4 1.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -2.4 1.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  -webkit-mask-size: cover;
+  mask-size: cover;
+}
+.bl-stamp small {
+  display: block;
+  margin-top: 0.35em;
+  font-size: 0.38em;
+  letter-spacing: 0.24em;
+}
+
+/* ---- The printer ---- */
+
+.bl-printer {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: calc(12 * var(--u));
+  width: calc(var(--bl-w) + 40 * var(--u));
+  height: calc(30 * var(--u));
+  margin-top: -2px;
+  padding: 0 calc(16 * var(--u));
+  border-radius: calc(6 * var(--u)) calc(6 * var(--u)) calc(12 * var(--u)) calc(12 * var(--u));
+  background: linear-gradient(180deg, #13267a 0%, var(--color-navy) 40%, #081a5c 100%);
+  box-shadow:
+    inset 0 3px 0 #050d33,
+    inset 0 4px 0 rgba(216, 227, 255, 0.12),
+    0 14px 30px rgba(0, 0, 0, 0.4);
+  font-family: var(--font-mono);
+}
+.bl-printer-vents {
+  width: calc(46 * var(--u));
+  height: calc(8 * var(--u));
+  background: repeating-linear-gradient(90deg, rgba(216, 227, 255, 0.28) 0 2px, transparent 2px 6px);
+  border-radius: 1px;
+}
+.bl-printer-name {
+  margin-left: auto;
+  font-size: calc(9.5 * var(--u));
+  letter-spacing: 0.2em;
+  color: var(--color-mist);
+  opacity: 0.6;
+}
+.bl-led {
+  width: calc(7 * var(--u));
+  height: calc(7 * var(--u));
+  border-radius: 50%;
+  background: var(--color-amber);
+  box-shadow: 0 0 8px var(--color-amber);
+  animation: bl-blink 0.5s steps(1) infinite;
+}
+.bl[data-state="cleared"] .bl-led {
+  background: #3ecf74;
+  box-shadow: 0 0 8px #3ecf74;
+  animation: none;
+}
+
+/* ---- The readout, as on the home page's preloader ---- */
+
+.bl-readout {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(14 * var(--u));
+}
+.bl-read {
+  display: flex;
+  align-items: baseline;
+  gap: calc(14 * var(--u));
+}
+.bl-num {
+  min-width: 2.4ch;
+  font-family: var(--font-mono);
+  font-size: clamp(32 * var(--u), 5svh, 44 * var(--u));
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--color-cream);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.bl-lbl {
+  min-width: 24ch;
+  font-family: var(--font-mono);
+  font-size: calc(11 * var(--u));
+  letter-spacing: 0.2em;
+  color: var(--color-amber);
+}
+.bl-bar {
+  position: relative;
+  width: min(280 * var(--u), 54vw);
+  height: 1px;
+  background: var(--color-rule);
+}
+.bl-fill {
+  position: absolute;
+  inset: 0;
+  display: block;
+  background: var(--color-amber);
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+}
+
+/* On a phone the equipment goes under the cargo name, and the fields
+   into two columns. */
+@media (max-width: 560px) {
+  .bl-sheet {
+    --edge: 2.2em;
+    font-size: min(11 * var(--u), 1.55svh);
+    padding-inline: calc(var(--edge) + 1em);
+  }
+  .bl-fields {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .bl-head {
+    flex-wrap: wrap;
+  }
+  .bl-title {
+    font-size: 1.9em;
+  }
+  .bl-thead,
+  .bl-row {
+    grid-template-columns: 2em 1fr auto;
+    row-gap: 0.25em;
+  }
+  .bl-equip-h {
+    display: none;
+  }
+  .bl-equip {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .bl-ok {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+  }
+  .bl-printer-vents {
+    display: none;
+  }
+  .bl-stamp {
+    font-size: 1.7em;
+    right: calc(var(--edge) + 1.2em);
+  }
+}
+
+/* ---- The /services page itself ---- */
+
+.svcp {
+  position: relative;
+  min-height: 100svh;
+  background: var(--color-navy-deep);
+  color: var(--color-cream);
+}
+
+/* ------------------------------------------------------------------ *
+ * Dispatch (/services) -- Dispatch.tsx, SplitFlap.tsx, FleetMorph.tsx
+ *
+ * The services page as a transport terminal: a split-flap departures
+ * board, a fleet of dots that re-forms for each cargo, the contract as
+ * kilometre stones, and a band of names running past. Timings: DISPATCH
+ * in lib/motion.ts.
+ * ------------------------------------------------------------------ */
+
+/* ---- Split-flap tiles ---- */
+
+.flaps {
+  display: inline-flex;
+  gap: 0.08em;
+  white-space: pre;
+}
+.flap {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 0.8em;
+  height: 1.2em;
+  border-radius: 0.09em;
+  background: linear-gradient(180deg, #1a2550 0%, #121b42 49.5%, #0c1434 50.5%, #111a3f 100%);
+  box-shadow:
+    inset 0 -1px 0 rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(216, 227, 255, 0.06);
+  color: var(--color-cream);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  line-height: 1;
+  perspective: 12em;
+}
+/* No backface-visibility here: a face only ever turns between -80deg and
+   flat, so its back never shows, and with it every one of the board's
+   thousand-odd faces was held on a GPU layer of its own for good. */
+.flap b {
+  display: block;
+  font-weight: inherit;
+  transform-origin: 50% 50%;
+}
+/* The split across the middle, where the two flaps meet. */
+.flap i {
+  position: absolute;
+  inset-inline: 0;
+  top: 50%;
+  height: 1px;
+  margin-top: -0.5px;
+  background: rgba(3, 7, 22, 0.8);
+}
+
+/* ---- The board ---- */
+
+.dsp-hero {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100svh;
+  padding: calc(130 * var(--u)) var(--page-pad) 8vh;
+}
+.dsp-board {
+  position: relative;
+  width: 100%;
+  max-width: calc(1180 * var(--u));
+  margin: 0 auto;
+  padding: calc(22 * var(--u)) calc(28 * var(--u)) calc(16 * var(--u));
+  border-radius: calc(18 * var(--u));
+  background:
+    radial-gradient(circle at 12px 12px, #2a376a 2.5px, transparent 3px),
+    radial-gradient(circle at calc(100% - 12px) 12px, #2a376a 2.5px, transparent 3px),
+    radial-gradient(circle at 12px calc(100% - 12px), #2a376a 2.5px, transparent 3px),
+    radial-gradient(circle at calc(100% - 12px) calc(100% - 12px), #2a376a 2.5px, transparent 3px),
+    #060c25;
+  box-shadow:
+    inset 0 0 0 1px rgba(216, 227, 255, 0.08),
+    0 40px 90px -20px rgba(0, 0, 0, 0.6);
+}
+.dsp-board-head {
+  display: flex;
+  justify-content: space-between;
+  gap: calc(16 * var(--u));
+  padding: 0 calc(4 * var(--u)) calc(16 * var(--u));
+  border-bottom: 1px solid var(--color-rule);
+  font-family: var(--font-mono);
+  font-size: calc(11 * var(--u));
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-mist);
+}
+.dsp-board-head > span {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(10 * var(--u));
+  opacity: 0.75;
+}
+.dsp-board-kind {
+  color: var(--color-amber);
+  opacity: 1 !important;
+}
+.dsp-clock {
+  color: var(--color-cream);
+  font-variant-numeric: tabular-nums;
+}
+.dsp-led {
+  width: calc(7 * var(--u));
+  height: calc(7 * var(--u));
+  border-radius: 50%;
+  background: #3ecf74;
+  box-shadow: 0 0 8px #3ecf74;
+}
+
+/* Headline and rows both size their tiles to the board's width (see
+   .flaps--fit), so each is one exact band across it. */
+.dsp-title,
+.dsp-rows {
+  container-type: inline-size;
+}
+.flaps--fit {
+  display: flex;
+  font-size: calc(100cqi / (0.88 * var(--n) - 0.08));
+}
+
+.dsp-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6cqi;
+  margin: calc(24 * var(--u)) 0 calc(28 * var(--u));
+}
+.dsp-title .flap {
+  border-radius: 0.06em;
+}
+/* The heading's words for search, set as the board's caption. */
+.dsp-title-kicker {
+  margin-bottom: calc(10 * var(--u));
+  font-family: var(--font-mono);
+  font-size: calc(11 * var(--u));
+  font-weight: 400;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-mist);
+}
+
+/* A colour flap: the tile's own split and shading over the colour. */
+.flap[data-chip] {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 49.5%, rgba(0, 0, 0, 0.16) 50.5%, rgba(0, 0, 0, 0.04) 100%),
+    var(--chip);
+}
+.flap--accent {
+  color: var(--color-amber);
+}
+
+.dsp-rows {
+  display: flex;
+  flex-direction: column;
+}
+/* Column heads on the same grid as the tiles below them. */
+.dsp-cols {
+  display: grid;
+  grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+  padding: 0 0 calc(8 * var(--u));
+  font-family: var(--font-mono);
+  font-size: calc(10 * var(--u));
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-mist);
+  opacity: 0.55;
+}
+.dsp-cols span {
+  grid-row: 1;
+  white-space: nowrap;
+}
+.dsp-cols--narrow,
+.dsp-line--narrow {
+  display: none !important;
+}
+.dsp-line {
+  position: relative;
+  display: block;
+  padding: calc(3 * var(--u)) 0;
+  color: inherit;
+  text-decoration: none;
+}
+/* Hovering a row lights its edge like a selected line on a board. */
+.dsp-line::before {
+  content: "";
+  position: absolute;
+  inset: 0 calc(-10 * var(--u));
+  border-radius: calc(6 * var(--u));
+  background: rgba(208, 230, 253, 0.07);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .dsp-line:hover::before {
+    opacity: 1;
+  }
+}
+.dsp-line:focus-visible::before {
+  opacity: 1;
+}
+.dsp-line:focus-visible {
+  outline: 2px solid var(--color-amber);
+  outline-offset: 3px;
+  border-radius: calc(6 * var(--u));
+}
+
+.dsp-hero-foot {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: calc(32 * var(--u));
+  width: 100%;
+  max-width: calc(1180 * var(--u));
+  margin: calc(34 * var(--u)) auto 0;
+}
+.dsp-hero-foot p {
+  max-width: 58ch;
+  margin: 0;
+  font-size: calc(16 * var(--u));
+  line-height: 1.65;
+  color: var(--color-mist);
+}
+.dsp-scroll {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(10 * var(--u));
+  font-family: var(--font-mono);
+  font-size: calc(10.5 * var(--u));
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-amber);
+}
+.dsp-scroll i {
+  width: 1px;
+  height: calc(44 * var(--u));
+  background: linear-gradient(var(--color-amber), transparent);
+  transform-origin: 50% 0;
+  animation: dsp-drip 2.2s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+@keyframes dsp-drip {
+  0% {
+    transform: scaleY(0);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+  100% {
+    transform: scaleY(1);
+    opacity: 0;
+  }
+}
+
+/* ---- The fleet ---- */
+
+.fl {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  column-gap: clamp(32 * var(--u), 5vw, 80 * var(--u));
+  max-width: calc(1400 * var(--u));
+  margin: 0 auto;
+  padding: 0 var(--page-pad);
+}
+.fl-stage {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: calc(24 * var(--u));
+  height: 100svh;
+  padding: calc(110 * var(--u)) 0 calc(60 * var(--u));
+}
+.fl-stage-head {
+  display: flex;
+  align-items: center;
+  gap: calc(20 * var(--u));
+}
+.fl-count {
+  font-family: var(--font-display);
+  font-size: clamp(36 * var(--u), 3.6vw, 52 * var(--u));
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+.fl-count em {
+  font-style: normal;
+  color: var(--color-mist);
+  opacity: 0.4;
+}
+.fl-name {
+  font-size: clamp(14 * var(--u), 1.3vw, 19 * var(--u));
+}
+/* The sight glass: a dark pane with a faint rim, the cargo inside it. */
+.fl-canvas {
+  display: block;
+  width: 100%;
+  height: min(42svh, 380 * var(--u));
+  border-radius: calc(16 * var(--u));
+  background: radial-gradient(ellipse 80% 70% at 45% 60%, rgba(36, 87, 255, 0.1), transparent 70%), #081030;
+  box-shadow:
+    inset 0 0 0 1px rgba(216, 227, 255, 0.1),
+    inset 0 18px 40px -20px rgba(216, 227, 255, 0.12);
+  font-family: var(--font-mono);
+}
+/* What the glass is showing, in numbers. */
+.fl-read-note {
+  margin: 0 0 calc(12 * var(--u));
+  font-size: calc(14.5 * var(--u));
+  line-height: 1.5;
+  color: var(--color-cream);
+}
+.fl-read dl {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: calc(12 * var(--u));
+  margin: 0;
+}
+.fl-read dl > div {
+  padding: calc(10 * var(--u)) calc(12 * var(--u));
+  border: 1px solid rgba(216, 227, 255, 0.14);
+  border-radius: calc(8 * var(--u));
+}
+.fl-read dt {
+  font-family: var(--font-mono);
+  font-size: calc(9.5 * var(--u));
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-amber);
+}
+.fl-read dd {
+  margin: calc(5 * var(--u)) 0 0;
+  font-family: var(--font-mono);
+  font-size: calc(12.5 * var(--u));
+  font-weight: 700;
+  line-height: 1.35;
+}
+.fl-ticks {
+  display: flex;
+  gap: calc(8 * var(--u));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.fl-ticks li {
+  width: calc(30 * var(--u));
+  height: calc(3 * var(--u));
+  border-radius: 2px;
+  background: var(--color-rule);
+  transition: background-color 0.3s ease, width 0.3s ease;
+}
+.fl-ticks li[data-on] {
+  width: calc(54 * var(--u));
+  background: var(--color-amber);
+}
+
+.fl-chapters {
+  padding-bottom: 6vh;
+}
+.fl-chapter {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100svh;
+  max-width: calc(580 * var(--u));
+  padding: 14vh 0;
+  scroll-margin-top: 0;
+}
+.fl-kicker {
+  display: flex;
+  align-items: center;
+  gap: calc(12 * var(--u));
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: calc(13 * var(--u));
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--color-amber);
+}
+.fl-kicker-icon {
+  width: calc(30 * var(--u));
+  height: calc(30 * var(--u));
+  color: var(--color-powder);
+}
+.fl-headline {
+  margin: calc(20 * var(--u)) 0 calc(18 * var(--u));
+  font-family: var(--font-display);
+  font-size: clamp(32 * var(--u), 3.5vw, 52 * var(--u));
+  font-weight: 700;
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+}
+/* Lines even out rather than leaving a word alone at the end: headings
+   balanced across their lines, paragraphs kept from ending on one word. */
+.fl-headline,
+.km-title,
+.km-post h3 {
+  text-wrap: balance;
+}
+.fl-lede,
+.fl-body,
+.km-post p,
+.dsp-hero-foot p {
+  text-wrap: pretty;
+}
+.fl-lede {
+  margin: 0 0 calc(18 * var(--u));
+  font-size: calc(19 * var(--u));
+  line-height: 1.45;
+  color: var(--color-cream);
+}
+.fl-body {
+  margin: 0 0 calc(14 * var(--u));
+  font-size: calc(15.5 * var(--u));
+  line-height: 1.72;
+  color: var(--color-mist);
+  opacity: 0.85;
+}
+.fl-how {
+  margin: calc(22 * var(--u)) 0 calc(26 * var(--u));
+}
+.fl-how-title {
+  margin: 0 0 calc(10 * var(--u));
+  font-family: var(--font-mono);
+  font-size: calc(11 * var(--u));
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-amber);
+}
+.fl-how ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.fl-how li {
+  display: grid;
+  grid-template-columns: calc(38 * var(--u)) 1fr;
+  padding: calc(11 * var(--u)) 0;
+  border-top: 1px solid rgba(216, 227, 255, 0.12);
+  font-size: calc(14.5 * var(--u));
+  line-height: 1.5;
+}
+.fl-how li span {
+  font-family: var(--font-mono);
+  font-size: calc(12 * var(--u));
+  color: var(--color-amber);
+  padding-top: 2px;
+}
+/* A riveted spec plate, in the powder blue of the nav and the cards. */
+.fl-plate {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: calc(14 * var(--u)) calc(26 * var(--u));
+  margin: 0;
+  padding: calc(22 * var(--u)) calc(26 * var(--u));
+  border-radius: calc(10 * var(--u));
+  background: linear-gradient(135deg, var(--color-powder) 0%, #bcd6f3 100%);
+  color: var(--color-navy-deep);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.5),
+    0 20px 40px -18px rgba(0, 0, 0, 0.5);
+}
+.fl-plate dt {
+  font-family: var(--font-mono);
+  font-size: calc(10 * var(--u));
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+.fl-plate dd {
+  margin: calc(4 * var(--u)) 0 0;
+  font-size: calc(13.5 * var(--u));
+  font-weight: 700;
+  line-height: 1.35;
+}
+.fl-rivet {
+  position: absolute;
+  width: calc(6 * var(--u));
+  height: calc(6 * var(--u));
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fff, #7d9cc4);
+}
+.fl-rivet:nth-of-type(1) { top: 8px; left: 8px; }
+.fl-rivet:nth-of-type(2) { top: 8px; right: 8px; }
+.fl-rivet:nth-of-type(3) { bottom: 8px; left: 8px; }
+.fl-rivet:nth-of-type(4) { bottom: 8px; right: 8px; }
+
+/* ---- The road ---- */
+
+.km {
+  max-width: calc(1400 * var(--u));
+  margin: 0 auto;
+  padding: 16vh var(--page-pad) 12vh;
+}
+.km-title {
+  margin: calc(24 * var(--u)) 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(38 * var(--u), 5vw, 76 * var(--u));
+  font-weight: 700;
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+}
+.km-road {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: calc(32 * var(--u));
+  margin: calc(72 * var(--u)) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.km-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(44 * var(--u));
+  height: 2px;
+  background: repeating-linear-gradient(90deg, var(--color-amber) 0 18px, transparent 18px 32px);
+  transform-origin: 0 50%;
+}
+.km-post {
+  position: relative;
+}
+/* A kilometre stone: a round-topped marker with a coloured cap. */
+.km-stone {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: calc(64 * var(--u));
+  height: calc(80 * var(--u));
+  overflow: hidden;
+  border-radius: calc(32 * var(--u)) calc(32 * var(--u)) calc(6 * var(--u)) calc(6 * var(--u));
+  background: var(--color-cream);
+  color: var(--color-navy-deep);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  text-align: center;
+  box-shadow: 0 14px 26px -12px rgba(0, 0, 0, 0.6);
+}
+.km-cap {
+  padding: calc(9 * var(--u)) 0 calc(5 * var(--u));
+  background: var(--color-amber);
+  font-size: calc(11 * var(--u));
+  letter-spacing: 0.1em;
+}
+.km-num {
+  margin: auto 0;
+  font-size: calc(15 * var(--u));
+  letter-spacing: -0.02em;
+}
+.km-step {
+  display: block;
+  margin: calc(24 * var(--u)) 0 calc(8 * var(--u));
+  font-family: var(--font-mono);
+  font-size: calc(11 * var(--u));
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-amber);
+}
+.km-post h3 {
+  margin: 0 0 calc(10 * var(--u));
+  font-size: calc(20 * var(--u));
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.km-post p {
+  margin: 0;
+  font-size: calc(14.5 * var(--u));
+  line-height: 1.6;
+  color: var(--color-mist);
+  opacity: 0.85;
+}
+
+/* ---- The band and the sign-off ---- */
+
+.dsp-end {
+  padding: 4vh 0 16vh;
+  overflow: hidden;
+}
+.dsp-band {
+  margin: 0 -4vw;
+  padding: calc(20 * var(--u)) 0;
+  background: var(--color-powder);
+  color: var(--color-navy-deep);
+  transform: rotate(-2deg);
+}
+.dsp-band-track {
+  display: flex;
+  width: max-content;
+  animation: dsp-band 30s linear infinite;
+}
+.dsp-band-track > span {
+  display: flex;
+}
+.dsp-band-track > span > span {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-display);
+  font-size: clamp(28 * var(--u), 4vw, 58 * var(--u));
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.dsp-band-track i {
+  width: 0.26em;
+  height: 0.26em;
+  margin: 0 0.7em;
+  border-radius: 50%;
+  background: var(--color-amber);
+}
+@keyframes dsp-band {
+  to {
+    transform: translateX(-50%);
+  }
+}
+.dsp-end-line {
+  max-width: calc(1400 * var(--u));
+  margin: 16vh auto 0;
+  padding: 0 var(--page-pad);
+  font-family: var(--font-display);
+  font-size: clamp(44 * var(--u), 7.5vw, 116 * var(--u));
+  font-weight: 700;
+  line-height: 0.96;
+  letter-spacing: -0.045em;
+}
+.dsp-end-line em {
+  display: block;
+  margin-top: 0.6em;
+  font-size: 0.24em;
+  font-style: normal;
+  letter-spacing: 0.02em;
+  color: var(--color-amber);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dsp-band-track,
+  .dsp-scroll i {
+    animation: none;
+  }
+}
+
+/* ---- Phones and small tablets ---- */
+
+@media (max-width: 900px) {
+  .dsp-hero {
+    padding-top: calc(96 * var(--u));
+  }
+  .dsp-board {
+    padding: calc(16 * var(--u)) calc(14 * var(--u)) calc(10 * var(--u));
+  }
+  .dsp-board-head {
+    font-size: calc(9.5 * var(--u));
+    letter-spacing: 0.14em;
+  }
+  .dsp-board-head > span:first-child {
+    display: none;
+  }
+  .dsp-title-kicker {
+    font-size: calc(9.5 * var(--u));
+    letter-spacing: 0.14em;
+  }
+  .dsp-board-kind-more,
+  .dsp-cols--wide,
+  .dsp-line--wide {
+    display: none !important;
+  }
+  .dsp-cols--narrow {
+    display: grid !important;
+  }
+  .dsp-line--narrow {
+    display: flex !important;
+  }
+  .dsp-hero-foot {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .dsp-scroll {
+    display: none;
+  }
+
+  .fl {
+    grid-template-columns: 1fr;
+  }
+  /* The vehicle rides along at the top while the chapters scroll up
+     under it. */
+  .fl-stage {
+    z-index: 2;
+    height: auto;
+    gap: calc(10 * var(--u));
+    padding: calc(64 * var(--u)) 0 calc(14 * var(--u));
+    background: var(--color-navy-deep);
+  }
+  /* A soft edge below it, clear of the text: copy slides under solid
+     ground, never through a half-transparent fade. */
+  .fl-stage::after {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: 100%;
+    height: calc(28 * var(--u));
+    background: linear-gradient(var(--color-navy-deep), transparent);
+    pointer-events: none;
+  }
+  .fl-count {
+    font-size: calc(28 * var(--u));
+  }
+  .fl-name {
+    font-size: calc(12 * var(--u));
+  }
+  .fl-canvas {
+    height: 20svh;
+  }
+  .fl-read-note {
+    display: none;
+  }
+  .fl-read dl {
+    gap: calc(6 * var(--u));
+  }
+  .fl-read dl > div {
+    padding: calc(6 * var(--u)) calc(8 * var(--u));
+  }
+  .fl-read dd {
+    font-size: calc(10.5 * var(--u));
+  }
+  .fl-chapter {
+    min-height: 0;
+    padding: 8vh 0;
+  }
+  .fl-plate {
+    grid-template-columns: 1fr;
+  }
+
+  .km-road {
+    grid-template-columns: 1fr;
+    gap: calc(40 * var(--u));
+  }
+  .km-line {
+    left: calc(31 * var(--u));
+    right: auto;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    height: auto;
+    background: repeating-linear-gradient(180deg, var(--color-amber) 0 18px, transparent 18px 32px);
+    transform-origin: 50% 0;
+  }
+  .km-post {
+    padding-left: calc(92 * var(--u));
+    min-height: calc(80 * var(--u));
+  }
+  .km-stone {
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+  .km-step {
+    margin-top: calc(4 * var(--u));
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Contact preloader (/contact) -- ContactPreloader.tsx
+ *
+ * The centre line of the road, opening: an amber dot, the dashed line
+ * running out from it to both edges, then the screen parting along it as
+ * two lanes. 2.2s in all, and all of it here: it paints with the first
+ * HTML and ends itself, so the form is never held up by script. Only
+ * transforms and opacity move, so it stays off the main thread while the
+ * page hydrates. Timings are the four variables below, and everything
+ * else -- the lights, the labels -- is worked out from them; the eases are
+ * the site's (EASE.settle, and a firmer in-out for the parting).
+ *
+ * The lanes take pointer events, the overlay itself doesn't: as a lane
+ * clears, the form under it is already clickable.
+ * ------------------------------------------------------------------ */
+
+.ctp {
+  --ctp-run-at: 0.1s; /* the line starts to run */
+  --ctp-run: 0.9s; /* and takes this long to reach both edges */
+  --ctp-part-at: 1.5s; /* the lanes start to part: a beat on LINE OPEN before */
+  --ctp-part: 0.7s; /* and take this long to clear */
+  --ctp-out: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --ctp-in-out: cubic-bezier(0.7, 0, 0.2, 1);
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  overflow: hidden;
+  contain: layout paint;
+  pointer-events: none;
+  animation: ctp-life calc(var(--ctp-part-at) + var(--ctp-part)) linear both;
+}
+.ctp[hidden] {
+  display: none;
+}
+/* Ends the overlay: hidden once the lanes have cleared. */
+@keyframes ctp-life {
+  from {
+    visibility: visible;
+  }
+  to {
+    visibility: hidden;
+  }
+}
+/* A tap or a key: the rest is a quick fade. */
+.ctp[data-skip] {
+  animation: ctp-skip 0.2s ease-out both;
+}
+@keyframes ctp-skip {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+/* The two lanes: the site's ground and dot field, lit from the line
+   between them. Each overhangs the middle by a pixel so no hairline of
+   page shows through. */
+.ctp-half {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: calc(50% + 1px);
+  pointer-events: auto;
+  will-change: transform;
+  animation: ctp-part var(--ctp-part) var(--ctp-in-out) var(--ctp-part-at) both;
+}
+.ctp-half--top {
+  top: 0;
+  --ctp-to: -100%;
+  background:
+    radial-gradient(ellipse 60% 90% at 50% 100%, rgba(36, 87, 255, 0.3), transparent 70%),
+    radial-gradient(circle, rgba(94, 115, 180, 0.22) 1px, transparent 1.6px) 0 0 / 15.2px 13.2px,
+    radial-gradient(circle, rgba(94, 115, 180, 0.22) 1px, transparent 1.6px) 7.6px 6.6px / 15.2px 13.2px,
+    var(--color-navy-deep);
+}
+.ctp-half--bottom {
+  bottom: 0;
+  --ctp-to: 100%;
+  background:
+    radial-gradient(ellipse 60% 90% at 50% 0%, rgba(36, 87, 255, 0.3), transparent 70%),
+    radial-gradient(circle, rgba(94, 115, 180, 0.22) 1px, transparent 1.6px) 0 0 / 15.2px 13.2px,
+    radial-gradient(circle, rgba(94, 115, 180, 0.22) 1px, transparent 1.6px) 7.6px 6.6px / 15.2px 13.2px,
+    var(--color-navy-deep);
+}
+@keyframes ctp-part {
+  to {
+    transform: translate3d(0, var(--ctp-to), 0);
+  }
+}
+
+/* The centre line: half of it on the edge of each lane, so it parts
+   with them. Grown from the middle; the dashes are the logo's. */
+.ctp-half::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--color-amber) 0 calc(14 * var(--u)),
+    transparent calc(14 * var(--u)) calc(26 * var(--u))
+  );
+  transform: scaleX(0);
+  animation: ctp-draw var(--ctp-run) var(--ctp-out) var(--ctp-run-at) both;
+}
+.ctp-half--top::after {
+  bottom: 0;
+}
+.ctp-half--bottom::after {
+  top: 0;
+}
+@keyframes ctp-draw {
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* The dot the line starts from, and the two lights that lead it out. */
+.ctp-node,
+.ctp-head {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: calc(8 * var(--u));
+  height: calc(8 * var(--u));
+  margin: calc(-4 * var(--u)) 0 0 calc(-4 * var(--u));
+  border-radius: 50%;
+}
+.ctp-node {
+  background: var(--color-amber);
+  box-shadow: 0 0 calc(16 * var(--u)) rgba(232, 163, 61, 0.7);
+  animation:
+    ctp-pop 0.3s var(--ctp-out) both,
+    ctp-out 0.1s linear calc(var(--ctp-part-at) - 0.1s) forwards;
+}
+/* A ring off the dot as it lights, and another as the line runs. */
+.ctp-node::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--color-amber);
+  border-radius: 50%;
+  animation: ctp-ping 0.9s var(--ctp-out) 0.05s 2 both;
+}
+.ctp-head {
+  --ctp-dir: 1;
+  background: var(--color-road-pulse);
+  box-shadow: 0 0 calc(14 * var(--u)) calc(2 * var(--u)) rgba(232, 163, 61, 0.75);
+  opacity: 0;
+  animation:
+    ctp-run var(--ctp-run) var(--ctp-out) var(--ctp-run-at) forwards,
+    ctp-out 0.1s linear calc(var(--ctp-run-at) + var(--ctp-run)) forwards;
+}
+.ctp-head--l {
+  --ctp-dir: -1;
+}
+@keyframes ctp-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+}
+@keyframes ctp-ping {
+  from {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(4.5);
+  }
+}
+/* 50vw is an edge of the screen from its middle, and the line's own tip
+   (scaleX) travels the same distance on the same curve. */
+@keyframes ctp-run {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(calc(var(--ctp-dir) * 50vw), 0, 0);
+  }
+}
+@keyframes ctp-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* The label, on the lower lane: one status, then the next as the line
+   arrives. */
+.ctp-lbl {
+  position: absolute;
+  top: calc(30 * var(--u));
+  left: 0;
+  right: 0;
+  display: grid;
+  justify-items: center;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: calc(11 * var(--u));
+  letter-spacing: 0.2em;
+  color: var(--color-amber);
+}
+.ctp-lbl span {
+  grid-area: 1 / 1;
+  opacity: 0;
+}
+/* The first is gone just before the line reaches the edges (0.07s), so the
+   two never overlap; the second lands as it does and stays through the
+   beat before the lanes part. */
+.ctp-lbl span:first-child {
+  animation:
+    ctp-lbl-in 0.2s var(--ctp-out) 0.05s both,
+    ctp-out 0.1s linear calc(var(--ctp-run-at) + var(--ctp-run) - 0.17s) forwards;
+}
+.ctp-lbl span:last-child {
+  animation: ctp-lbl-in 0.2s var(--ctp-out) calc(var(--ctp-run-at) + var(--ctp-run) - 0.07s) forwards;
+}
+@keyframes ctp-lbl-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Reduced motion: no intro. The form is just there. */
+@media (prefers-reduced-motion: reduce) {
+  .ctp {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Capacity request (/contact) -- CapacityForm.tsx
+ *
+ * The services page's ground and type, with the form as its riveted
+ * powder-blue plate: a booking slip in numbered sections. Inputs are
+ * ruled lines, as on paper, rather than boxes.
+ * ------------------------------------------------------------------ */
+
+.ct {
+  min-height: 100svh;
+  background:
+    radial-gradient(ellipse 70% 60% at 85% 20%, rgba(36, 87, 255, 0.16), transparent 70%),
+    var(--color-navy-deep);
+  color: var(--color-cream);
+}
+.ct-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: clamp(40 * var(--u), 6vw, 110 * var(--u));
+  align-items: start;
+  max-width: calc(1400 * var(--u));
+  margin: 0 auto;
+  padding: calc(150 * var(--u)) var(--page-pad) 14vh;
+}
+.ct-intro {
+  position: sticky;
+  top: calc(150 * var(--u));
+}
+.ct-title {
+  margin: calc(24 * var(--u)) 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(40 * var(--u), 5.2vw, 80 * var(--u));
+  font-weight: 700;
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+}
+.ct-lede {
+  max-width: 40ch;
+  margin: calc(28 * var(--u)) 0 0;
+  font-size: calc(16 * var(--u));
+  line-height: 1.65;
+  color: var(--color-mist);
+}
+.ct-steps {
+  display: grid;
+  gap: calc(14 * var(--u));
+  margin: calc(40 * var(--u)) 0 0;
+  padding: calc(22 * var(--u)) 0 0;
+  border-top: 1px solid var(--color-rule);
+  list-style: none;
+  font-family: var(--font-mono);
+  font-size: calc(13 * var(--u));
+  line-height: 1.5;
+  color: var(--color-mist);
+}
+.ct-steps li {
+  display: grid;
+  grid-template-columns: calc(36 * var(--u)) 1fr;
+}
+.ct-steps span {
+  color: var(--color-amber);
+}
+
+/* ---- The slip ---- */
+
+.ct-slip {
+  position: relative;
+  padding: clamp(26 * var(--u), 3.4vw, 46 * var(--u));
+  border-radius: calc(14 * var(--u));
+  background: linear-gradient(160deg, var(--color-powder) 0%, #bcd6f3 100%);
+  color: var(--color-navy-deep);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.5),
+    0 30px 60px -24px rgba(0, 0, 0, 0.6);
+}
+.ct-rivet {
+  position: absolute;
+  width: calc(7 * var(--u));
+  height: calc(7 * var(--u));
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fff, #7d9cc4);
+}
+.ct-rivet:nth-of-type(1) { top: 12px; left: 12px; }
+.ct-rivet:nth-of-type(2) { top: 12px; right: 12px; }
+.ct-rivet:nth-of-type(3) { bottom: 12px; left: 12px; }
+.ct-rivet:nth-of-type(4) { bottom: 12px; right: 12px; }
+
+.ct-form {
+  display: grid;
+  gap: calc(34 * var(--u));
+}
+/* The slip's sections rise into place as the page arrives, a beat
+   apart, on the site's lift (LIFT_Y, DUR.settle, power2.out, STAGGER in
+   lib/motion.ts). CSS, so it runs from the first paint (CapacityForm). */
+.ct-rise {
+  animation: ct-rise 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+  animation-delay: calc(0.1s + var(--i, 0) * 0.08s);
+}
+@keyframes ct-rise {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+}
+.ct-sec {
+  display: grid;
+  gap: calc(18 * var(--u));
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.ct-sec legend {
+  display: flex;
+  gap: calc(14 * var(--u));
+  margin-bottom: calc(18 * var(--u));
+  padding: 0;
+  font-family: var(--font-display);
+  font-size: clamp(19 * var(--u), 1.7vw, 24 * var(--u));
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.ct-sec legend span {
+  font-family: var(--font-mono);
+  font-size: calc(12 * var(--u));
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  color: #3a5fb8;
+  padding-top: 0.55em;
+}
+
+/* Cargo: five tiles, one per cargo, each a radio. */
+.ct-cargo {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: calc(10 * var(--u));
+}
+.ct-chip {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: calc(10 * var(--u));
+  padding: calc(16 * var(--u)) calc(8 * var(--u)) calc(14 * var(--u));
+  border-radius: calc(10 * var(--u));
+  background: rgba(255, 255, 255, 0.4);
+  box-shadow: inset 0 0 0 1px rgba(11, 20, 51, 0.12);
+  font-family: var(--font-mono);
+  font-size: calc(12 * var(--u));
+  line-height: 1.25;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    background-color 180ms ease,
+    box-shadow 180ms ease,
+    color 180ms ease,
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.ct-chip input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.ct-chip-icon {
+  width: calc(38 * var(--u));
+  height: calc(38 * var(--u));
+  color: var(--color-navy);
+}
+@media (hover: hover) and (pointer: fine) {
+  .ct-chip:hover {
+    background: rgba(255, 255, 255, 0.7);
+  }
+}
+.ct-chip:active {
+  transform: scale(0.97);
+}
+.ct-chip:has(input:checked) {
+  background: var(--color-navy-deep);
+  color: var(--color-cream);
+  box-shadow: inset 0 0 0 1px var(--color-navy-deep), 0 10px 22px -12px rgba(11, 20, 51, 0.7);
+}
+.ct-chip:has(input:checked) .ct-chip-icon {
+  color: var(--color-amber);
+}
+.ct-chip:has(input:focus-visible) {
+  outline: 2px solid var(--color-blue);
+  outline-offset: 3px;
+}
+.ct-cargo[aria-invalid] .ct-chip {
+  box-shadow: inset 0 0 0 1px rgba(196, 52, 30, 0.55);
+}
+
+/* Fields: a label over a ruled line. */
+.ct-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: calc(16 * var(--u));
+  align-items: start;
+}
+.ct-arrow {
+  padding-top: calc(30 * var(--u));
+  font-family: var(--font-mono);
+  font-size: calc(18 * var(--u));
+  color: #3a5fb8;
+}
+.ct-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: calc(18 * var(--u)) calc(24 * var(--u));
+}
+.ct-field {
+  display: grid;
+  gap: calc(6 * var(--u));
+  min-width: 0;
+}
+.ct-label {
+  font-family: var(--font-mono);
+  font-size: calc(11 * var(--u));
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #3a5fb8;
+}
+.ct-label em {
+  margin-left: calc(6 * var(--u));
+  font-style: normal;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  opacity: 0.7;
+}
+.ct-field input,
+.ct-field textarea {
+  width: 100%;
+  padding: calc(8 * var(--u)) 0 calc(9 * var(--u));
+  border: 0;
+  border-bottom: 1.5px solid rgba(11, 20, 51, 0.28);
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-navy-deep);
+  font-family: var(--font-mono);
+  font-size: calc(16 * var(--u)); /* 16px or more: iOS won't zoom the page on focus */
+  line-height: 1.4;
+  outline: none;
+  transition: border-color 180ms ease, background-color 180ms ease;
+}
+.ct-field textarea {
+  resize: vertical;
+  min-height: calc(80 * var(--u));
+}
+.ct-field input::placeholder,
+.ct-field textarea::placeholder {
+  color: rgba(11, 20, 51, 0.35);
+}
+.ct-field input:focus,
+.ct-field textarea:focus {
+  border-bottom-color: var(--color-blue);
+  background: linear-gradient(to top, rgba(36, 87, 255, 0.07), transparent 70%);
+}
+.ct-field [aria-invalid] {
+  border-bottom-color: #c4341e;
+}
+.ct-err {
+  min-height: 0;
+  font-family: var(--font-mono);
+  font-size: calc(11.5 * var(--u));
+  color: #b12e1a;
+}
+.ct-err:empty {
+  display: none;
+}
+
+/* The honeypot: off screen, out of the tab order, unread. */
+.ct-hp {
+  position: absolute;
+  left: calc(-9999 * var(--u));
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.ct-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(18 * var(--u)) calc(28 * var(--u));
+  padding-top: calc(26 * var(--u));
+  border-top: 1px dashed rgba(11, 20, 51, 0.25);
+}
+.ct-note {
+  flex: 1 1 calc(260 * var(--u));
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: calc(12 * var(--u));
+  line-height: 1.55;
+  color: rgba(11, 20, 51, 0.7);
+}
+/* The site's primary glass, inverted for a light ground: navy body,
+   cream label. */
+.ct-submit {
+  flex: 0 0 auto;
+  --glass-strength: 1;
+  background: var(--color-navy-deep);
+  border-color: var(--color-navy-deep);
+  color: var(--color-cream);
+  font-family: var(--font-mono);
+  font-size: calc(14.5 * var(--u));
+  cursor: pointer;
+}
+@media (hover: hover) and (pointer: fine) {
+  .ct-submit:hover {
+    background: var(--color-navy);
+    border-color: var(--color-navy);
+  }
+}
+.ct-submit:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+.ct-submit:focus-visible {
+  outline: 2px solid var(--color-blue);
+  outline-offset: 4px;
+}
+
+/* ---- Received ---- */
+
+.ct-slip--done {
+  min-height: calc(420 * var(--u));
+  overflow: hidden;
+}
+.ct-done {
+  max-width: 44ch;
+}
+.ct-kicker {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: calc(12 * var(--u));
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #3a5fb8;
+}
+.ct-done-title {
+  margin: calc(18 * var(--u)) 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(26 * var(--u), 2.6vw, 38 * var(--u));
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+.ct-done-body {
+  margin: calc(18 * var(--u)) 0 0;
+  font-size: calc(15 * var(--u));
+  line-height: 1.65;
+}
+.ct-ref {
+  display: inline-block;
+  margin: calc(18 * var(--u)) 0 0;
+  padding: calc(10 * var(--u)) calc(16 * var(--u));
+  border-radius: calc(8 * var(--u));
+  background: var(--color-navy-deep);
+  color: var(--color-amber);
+  font-family: var(--font-mono);
+  font-size: calc(17 * var(--u));
+  letter-spacing: 0.08em;
+}
+.ct-link {
+  display: block;
+  margin-top: calc(30 * var(--u));
+  font-family: var(--font-mono);
+  font-size: calc(13 * var(--u));
+  color: var(--color-navy);
+  text-underline-offset: 4px;
+}
+.ct-stamp {
+  position: absolute;
+  right: clamp(24 * var(--u), 5vw, 60 * var(--u));
+  bottom: clamp(30 * var(--u), 5vw, 56 * var(--u));
+  padding: 0.45em 0.9em 0.5em;
+  border: 0.2em solid #1b44c8;
+  outline: 1px solid #1b44c8;
+  outline-offset: 0.2em;
+  border-radius: 0.4em;
+  color: #1b44c8;
+  font-family: var(--font-mono);
+  font-size: clamp(24 * var(--u), 3vw, 34 * var(--u));
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  text-align: center;
+  mix-blend-mode: multiply;
+  transform: rotate(-8deg);
+}
+.ct-stamp small {
+  display: block;
+  margin-top: 0.35em;
+  font-size: 0.38em;
+  letter-spacing: 0.24em;
+}
+
+/* ---- Phones and small tablets ---- */
+
+@media (max-width: 900px) {
+  .ct-wrap {
+    grid-template-columns: 1fr;
+    gap: calc(48 * var(--u));
+    padding-top: calc(120 * var(--u));
+  }
+  .ct-intro {
+    position: static;
+  }
+  .ct-cargo {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .ct-row,
+  .ct-grid {
+    grid-template-columns: 1fr;
+  }
+  .ct-arrow {
+    display: none;
+  }
+  .ct-stamp {
+    position: static;
+    display: inline-block;
+    margin-top: calc(34 * var(--u));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ct-chip,
+  .ct-field input,
+  .ct-field textarea {
+    transition: none;
+  }
+  .ct-rise {
+    animation: none;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * FAQ (Faq.tsx, FaqExplorer.tsx, LaneBoard.tsx)
+ *
+ * The questions as a shipping manifest on the cream ground: numbered
+ * rows ruled like a ledger, each with its route code, opening in place.
+ * Beside the title, a small departure board for the question everyone
+ * asks first -- how far, how long.
+ * ------------------------------------------------------------------ */
+
+.faq {
+  --faq-ink: var(--color-navy-deep);
+  --faq-rule: rgba(11, 20, 51, 0.14);
+  --faq-soft: rgba(11, 20, 51, 0.62);
+  --faq-open: cubic-bezier(0.22, 1, 0.36, 1);
+  position: relative;
+  z-index: 2;
+  padding: calc(16vh + 60 * var(--u)) var(--page-pad) 14vh;
+}
+.faq-wrap {
+  max-width: calc(1400 * var(--u));
+  margin: 0 auto;
+}
+
+/* The tank's lip, hanging over the top of the section (FaqLip.tsx). */
+.faq-lip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 200px;
+  overflow: visible;
+  pointer-events: none;
+}
+.faq-lip-body {
+  fill: var(--color-navy-deep);
+}
+.faq-lip-glint {
+  fill: var(--color-cream);
+}
+
+/* ---- Head ---- */
+
+.faq-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, calc(560 * var(--u)));
+  align-items: end;
+  gap: clamp(40 * var(--u), 6vw, 110 * var(--u));
+  padding-bottom: calc(72 * var(--u));
+  border-bottom: 1px solid var(--faq-ink);
+}
+.faq-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: calc(14 * var(--u));
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: calc(13 * var(--u));
+  letter-spacing: 0.11em;
+  color: var(--color-navy);
+  opacity: 0.8;
+}
+.faq-eyebrow i {
+  width: calc(34 * var(--u));
+  height: 1px;
+  flex-shrink: 0;
+  background: currentColor;
+  opacity: 0.5;
+}
+.faq-title {
+  margin: calc(28 * var(--u)) 0 calc(26 * var(--u));
+  font-family: var(--font-display);
+  font-size: clamp(40 * var(--u), 6vw, 88 * var(--u));
+  font-weight: 700;
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+  color: var(--faq-ink);
+}
+.faq-lede {
+  max-width: 46ch;
+  margin: 0;
+  font-size: calc(16 * var(--u));
+  line-height: 1.65;
+  color: var(--faq-soft);
+}
+
+/* ---- Lane board ---- */
+
+.lb {
+  position: relative;
+  padding: calc(20 * var(--u)) calc(22 * var(--u)) calc(18 * var(--u));
+  border-radius: calc(18 * var(--u));
+  background:
+    radial-gradient(circle at 11px 11px, #2a376a 2.5px, transparent 3px),
+    radial-gradient(circle at calc(100% - 11px) 11px, #2a376a 2.5px, transparent 3px),
+    radial-gradient(circle at 11px calc(100% - 11px), #2a376a 2.5px, transparent 3px),
+    radial-gradient(circle at calc(100% - 11px) calc(100% - 11px), #2a376a 2.5px, transparent 3px),
+    #060c25;
+  color: var(--color-cream);
+  box-shadow:
+    inset 0 0 0 1px rgba(216, 227, 255, 0.08),
+    0 34px 70px -28px rgba(11, 20, 51, 0.65);
+}
+.lb-head {
+  display: flex;
+  justify-content: space-between;
+  gap: calc(16 * var(--u));
+  padding: 0 calc(4 * var(--u)) calc(14 * var(--u));
+  border-bottom: 1px solid var(--color-rule);
+  font-family: var(--font-mono);
+  font-size: calc(10.5 * var(--u));
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-mist);
+}
+.lb-head > span {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(10 * var(--u));
+}
+.lb-from {
+  color: var(--color-amber);
+}
+.lb-rows {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(14 * var(--u)) calc(16 * var(--u));
+  margin: calc(18 * var(--u)) 0 calc(16 * var(--u));
+  font-size: clamp(15 * var(--u), 1.8vw, 26 * var(--u));
+}
+.lb-cell {
+  display: flex;
+  flex-direction: column;
+  gap: calc(8 * var(--u));
+}
+.lb-label {
+  font-family: var(--font-mono);
+  font-size: calc(10 * var(--u));
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-mist);
+  opacity: 0.6;
+}
+.lb .flap--accent {
+  color: var(--color-amber);
+}
+
+/* The run: a hairline from Port Qasim to Peshawar, filled in amber to
+   the chosen city, with a tick for every stop on its way. */
+.lb-run {
+  display: flex;
+  align-items: center;
+  gap: calc(12 * var(--u));
+  margin: calc(4 * var(--u)) calc(4 * var(--u)) calc(14 * var(--u));
+  font-family: var(--font-mono);
+  font-size: calc(10 * var(--u));
+  letter-spacing: 0.14em;
+  color: var(--color-mist);
+}
+.lb-run-end {
+  opacity: 0.6;
+}
+.lb-run-track {
+  position: relative;
+  flex: 1;
+  height: 2px;
+  background: rgba(216, 227, 255, 0.14);
+}
+.lb-run-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--color-amber);
+  box-shadow: 0 0 10px rgba(232, 163, 61, 0.55);
+  transition: width 900ms var(--faq-open);
+}
+.lb-run-fill b {
+  position: absolute;
+  top: 50%;
+  right: calc(-6 * var(--u));
+  width: calc(12 * var(--u));
+  height: calc(12 * var(--u));
+  margin-top: calc(-6 * var(--u));
+  border-radius: 50%;
+  background: var(--color-amber);
+  box-shadow: 0 0 0 4px rgba(232, 163, 61, 0.2);
+}
+.lb-run-track i {
+  position: absolute;
+  top: 50%;
+  width: calc(6 * var(--u));
+  height: calc(6 * var(--u));
+  margin: calc(-3 * var(--u)) 0 0 calc(-3 * var(--u));
+  border-radius: 50%;
+  background: #1e2a5c;
+  transition: background-color 400ms ease;
+}
+.lb-run-track i[data-on] {
+  background: var(--color-amber);
+}
+.lb-roads {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(6 * var(--u));
+  margin: 0 0 calc(16 * var(--u));
+  padding: 0 calc(4 * var(--u));
+  list-style: none;
+  font-family: var(--font-mono);
+  font-size: calc(11 * var(--u));
+  letter-spacing: 0.06em;
+}
+.lb-roads li {
+  display: flex;
+  align-items: center;
+  gap: calc(6 * var(--u));
+  color: var(--color-cream);
+}
+.lb-roads li + li::before {
+  content: "→";
+  color: var(--color-mist);
+  opacity: 0.5;
+}
+.lb-roads li span,
+.lb-roads li {
+  font-weight: 700;
+}
+.lb-picks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(6 * var(--u));
+  padding: calc(14 * var(--u)) calc(4 * var(--u)) 0;
+  border-top: 1px solid var(--color-rule);
+}
+.lb-picks button {
+  padding: calc(6 * var(--u)) calc(11 * var(--u));
+  border: 1px solid rgba(216, 227, 255, 0.18);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-mist);
+  font-family: var(--font-mono);
+  font-size: calc(11.5 * var(--u));
+  cursor: pointer;
+  transition:
+    background-color 200ms ease,
+    border-color 200ms ease,
+    color 200ms ease,
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.lb-picks button[aria-pressed="true"] {
+  border-color: var(--color-amber);
+  background: var(--color-amber);
+  color: var(--color-navy-deep);
+  font-weight: 700;
+}
+.lb-picks button:active {
+  transform: scale(0.96);
+}
+.lb-picks button:focus-visible {
+  outline: 2px solid var(--color-amber);
+  outline-offset: 2px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .lb-picks button:not([aria-pressed="true"]):hover {
+    border-color: rgba(216, 227, 255, 0.45);
+    color: var(--color-cream);
+  }
+}
+.lb-note {
+  margin: calc(14 * var(--u)) calc(4 * var(--u)) 0;
+  font-family: var(--font-mono);
+  font-size: calc(10.5 * var(--u));
+  line-height: 1.55;
+  color: var(--color-mist);
+  opacity: 0.55;
+}
+
+/* ---- Body: side panel + manifest ---- */
+
+.faq-body {
+  display: grid;
+  grid-template-columns: calc(300 * var(--u)) minmax(0, 1fr);
+  gap: clamp(32 * var(--u), 5vw, 90 * var(--u));
+  padding-top: calc(48 * var(--u));
+}
+.faq-side {
+  position: sticky;
+  top: calc(90 * var(--u));
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: calc(26 * var(--u));
+}
+
+.faq-search {
+  display: flex;
+  align-items: center;
+  gap: calc(10 * var(--u));
+  height: calc(48 * var(--u));
+  padding: 0 calc(12 * var(--u)) 0 calc(14 * var(--u));
+  border: 1px solid var(--faq-rule);
+  border-radius: calc(12 * var(--u));
+  background: rgba(255, 255, 255, 0.55);
+  transition:
+    border-color 200ms ease,
+    box-shadow 200ms ease,
+    background-color 200ms ease;
+}
+.faq-search:focus-within {
+  border-color: var(--color-navy);
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(1, 31, 123, 0.1);
+}
+.faq-search > svg {
+  width: calc(18 * var(--u));
+  height: calc(18 * var(--u));
+  flex-shrink: 0;
+  fill: none;
+  stroke: var(--faq-soft);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.faq-search input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--faq-ink);
+  font-family: var(--font-mono);
+  font-size: calc(13 * var(--u));
+  outline: none;
+}
+.faq-search input::placeholder {
+  color: rgba(11, 20, 51, 0.4);
+}
+/* 16px or more on a touch screen: iOS zooms the whole page into any
+   field set smaller as it takes focus. */
+@media (pointer: coarse) {
+  .faq-search input {
+    font-size: calc(16 * var(--u));
+  }
+}
+.faq-search input::-webkit-search-cancel-button {
+  display: none;
+}
+.faq-search kbd {
+  display: grid;
+  place-items: center;
+  width: calc(22 * var(--u));
+  height: calc(22 * var(--u));
+  border: 1px solid var(--faq-rule);
+  border-radius: calc(6 * var(--u));
+  font-family: var(--font-mono);
+  font-size: calc(11 * var(--u));
+  color: var(--faq-soft);
+}
+.faq-search-clear {
+  display: grid;
+  place-items: center;
+  width: calc(26 * var(--u));
+  height: calc(26 * var(--u));
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(11, 20, 51, 0.08);
+  cursor: pointer;
+}
+.faq-search-clear svg {
+  width: calc(12 * var(--u));
+  height: calc(12 * var(--u));
+  stroke: var(--faq-ink);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+
+.faq-topics {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--faq-rule);
+}
+.faq-topics button {
+  display: grid;
+  grid-template-columns: calc(46 * var(--u)) 1fr auto;
+  align-items: center;
+  gap: calc(8 * var(--u));
+  padding: calc(13 * var(--u)) calc(4 * var(--u));
+  border: 0;
+  border-bottom: 1px solid var(--faq-rule);
+  background: transparent;
+  color: var(--faq-ink);
+  font-family: var(--font-mono);
+  font-size: calc(13 * var(--u));
+  text-align: left;
+  cursor: pointer;
+  transition:
+    color 200ms ease,
+    padding-left 300ms var(--faq-open),
+    opacity 200ms ease;
+}
+/* Quieter than the label, and still 4.5:1 on the cream. */
+.faq-topic-code {
+  font-size: calc(10 * var(--u));
+  letter-spacing: 0.14em;
+  opacity: 0.7;
+}
+.faq-topic-count {
+  font-size: calc(11 * var(--u));
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+.faq-topics button[aria-pressed="true"] {
+  padding-left: calc(14 * var(--u));
+  font-weight: 700;
+  color: var(--color-navy);
+  background: linear-gradient(90deg, var(--color-amber) 0 3px, transparent 3px);
+}
+.faq-topics button[aria-pressed="true"] .faq-topic-code,
+.faq-topics button[aria-pressed="true"] .faq-topic-count {
+  opacity: 1;
+}
+.faq-topics button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.faq-topics button:focus-visible {
+  outline: 2px solid var(--color-navy);
+  outline-offset: -2px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .faq-topics button:not(:disabled):not([aria-pressed="true"]):hover {
+    padding-left: calc(10 * var(--u));
+  }
+}
+
+.faq-ask {
+  padding: calc(22 * var(--u)) calc(22 * var(--u)) calc(20 * var(--u));
+  border-radius: calc(16 * var(--u));
+  background: linear-gradient(160deg, var(--color-navy) 0%, #011866 55%, var(--color-navy-deep) 100%);
+  color: var(--color-cream);
+  box-shadow: 0 18px 40px -22px rgba(11, 20, 51, 0.6);
+}
+.faq-ask-title {
+  margin: 0 0 calc(8 * var(--u));
+  font-family: var(--font-display);
+  font-size: calc(18 * var(--u));
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.faq-ask-body {
+  margin: 0 0 calc(18 * var(--u));
+  font-size: calc(13 * var(--u));
+  line-height: 1.6;
+  color: var(--color-mist);
+}
+.faq-ask-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(10 * var(--u));
+  padding: calc(10 * var(--u)) calc(16 * var(--u));
+  border-radius: 999px;
+  background: var(--color-amber);
+  color: var(--color-navy-deep);
+  font-family: var(--font-mono);
+  font-size: calc(13 * var(--u));
+  font-weight: 700;
+  text-decoration: none;
+  transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.faq-ask-cta svg {
+  width: calc(16 * var(--u));
+  height: calc(16 * var(--u));
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 300ms var(--faq-open);
+}
+.faq-ask-cta:active {
+  transform: scale(0.97);
+}
+.faq-ask-cta:focus-visible {
+  outline: 2px solid var(--color-amber);
+  outline-offset: 3px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .faq-ask-cta:hover svg {
+    transform: translateX(4px);
+  }
+}
+
+/* ---- The manifest ---- */
+
+.faq-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(16 * var(--u));
+  padding-bottom: calc(14 * var(--u));
+  font-family: var(--font-mono);
+  font-size: calc(12 * var(--u));
+  color: var(--faq-soft);
+}
+.faq-bar p {
+  margin: 0;
+}
+.faq-bar b {
+  color: var(--faq-ink);
+  font-variant-numeric: tabular-nums;
+}
+.faq-bar-toggle {
+  padding: calc(6 * var(--u)) calc(12 * var(--u));
+  border: 1px solid var(--faq-rule);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--faq-ink);
+  font-family: var(--font-mono);
+  font-size: calc(11.5 * var(--u));
+  cursor: pointer;
+  transition: border-color 200ms ease;
+}
+.faq-bar-toggle:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+@media (hover: hover) and (pointer: fine) {
+  .faq-bar-toggle:not(:disabled):hover {
+    border-color: var(--faq-ink);
+  }
+}
+
+.faq-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--faq-rule);
+}
+.faq-row {
+  position: relative;
+  border-bottom: 1px solid var(--faq-rule);
+  scroll-margin-top: calc(110 * var(--u));
+}
+/* The open row is marked down its left edge in amber, like a line
+   ticked off on a manifest. */
+.faq-row::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: -1px;
+  width: calc(3 * var(--u));
+  background: var(--color-amber);
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 450ms var(--faq-open);
+}
+.faq-row[data-open]::before {
+  transform: scaleY(1);
+}
+.faq-h {
+  margin: 0;
+  font: inherit;
+}
+.faq-q {
+  display: grid;
+  grid-template-columns: calc(58 * var(--u)) minmax(0, 1fr) auto calc(38 * var(--u));
+  align-items: center;
+  gap: calc(18 * var(--u));
+  width: 100%;
+  padding: calc(24 * var(--u)) calc(6 * var(--u)) calc(24 * var(--u)) calc(18 * var(--u));
+  border: 0;
+  background: transparent;
+  color: var(--faq-ink);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 250ms ease;
+}
+.faq-q:focus-visible {
+  outline: 2px solid var(--color-navy);
+  outline-offset: -2px;
+}
+.faq-num {
+  font-family: var(--font-mono);
+  font-size: calc(12 * var(--u));
+  letter-spacing: 0.06em;
+  color: var(--faq-soft);
+  font-variant-numeric: tabular-nums;
+}
+.faq-q-text {
+  font-family: var(--font-display);
+  font-size: clamp(16 * var(--u), 1.45vw, 21 * var(--u));
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+}
+.faq-hot {
+  display: inline-block;
+  margin-left: calc(12 * var(--u));
+  padding: calc(3 * var(--u)) calc(8 * var(--u));
+  border-radius: 999px;
+  background: rgba(232, 163, 61, 0.2);
+  color: #8a5410;
+  font-family: var(--font-mono);
+  font-size: calc(10 * var(--u));
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  vertical-align: 0.25em;
+  white-space: nowrap;
+}
+.faq-code {
+  padding: calc(4 * var(--u)) calc(8 * var(--u));
+  border: 1px solid var(--faq-rule);
+  border-radius: calc(6 * var(--u));
+  font-family: var(--font-mono);
+  font-size: calc(10 * var(--u));
+  letter-spacing: 0.14em;
+  color: var(--faq-soft);
+}
+.faq-plus {
+  position: relative;
+  display: block;
+  width: calc(38 * var(--u));
+  height: calc(38 * var(--u));
+  border: 1px solid var(--faq-rule);
+  border-radius: 50%;
+  transition:
+    background-color 300ms ease,
+    border-color 300ms ease,
+    transform 450ms var(--faq-open);
+}
+.faq-plus i {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: calc(14 * var(--u));
+  height: 2px;
+  margin: -1px 0 0 calc(-7 * var(--u));
+  border-radius: 1px;
+  background: var(--faq-ink);
+  transition:
+    transform 450ms var(--faq-open),
+    background-color 300ms ease;
+}
+.faq-plus i:last-child {
+  transform: rotate(90deg);
+}
+.faq-row[data-open] .faq-plus {
+  background: var(--faq-ink);
+  border-color: var(--faq-ink);
+  transform: rotate(180deg);
+}
+.faq-row[data-open] .faq-plus i {
+  background: var(--color-cream);
+}
+.faq-row[data-open] .faq-plus i:last-child {
+  transform: rotate(0deg);
+}
+@media (hover: hover) and (pointer: fine) {
+  .faq-q:hover {
+    background: rgba(11, 20, 51, 0.035);
+  }
+  .faq-q:hover .faq-plus {
+    border-color: var(--faq-ink);
+  }
+}
+
+/* Opens by animating the row track from 0fr to 1fr: the panel's real
+   height, with no measuring in script. */
+.faq-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 500ms var(--faq-open);
+}
+.faq-row[data-open] .faq-panel {
+  grid-template-rows: 1fr;
+}
+.faq-panel-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+.faq-answer {
+  max-width: 68ch;
+  padding: 0 calc(60 * var(--u)) calc(30 * var(--u)) calc(18 * var(--u) + 58 * var(--u) + 18 * var(--u));
+  opacity: 0;
+  transform: translateY(-6px);
+  transition:
+    opacity 300ms ease,
+    transform 450ms var(--faq-open);
+}
+.faq-row[data-open] .faq-answer {
+  opacity: 1;
+  transform: none;
+  transition-delay: 80ms;
+}
+.faq-answer p {
+  margin: 0 0 calc(14 * var(--u));
+  font-size: calc(15 * var(--u));
+  line-height: 1.7;
+  color: rgba(11, 20, 51, 0.78);
+}
+.faq-answer mark,
+.faq-q-text mark {
+  padding: 0 2px;
+  border-radius: calc(3 * var(--u));
+  background: rgba(232, 163, 61, 0.38);
+  color: inherit;
+}
+.faq-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(8 * var(--u));
+  margin: calc(20 * var(--u)) 0 calc(18 * var(--u));
+  padding: 0;
+  list-style: none;
+}
+.faq-facts li {
+  display: flex;
+  align-items: center;
+  gap: calc(8 * var(--u));
+  padding: calc(6 * var(--u)) calc(12 * var(--u)) calc(6 * var(--u)) calc(10 * var(--u));
+  border-radius: 999px;
+  background: rgba(1, 31, 123, 0.07);
+  color: var(--color-navy);
+  font-family: var(--font-mono);
+  font-size: calc(11.5 * var(--u));
+}
+.faq-facts li::before {
+  content: "";
+  width: calc(6 * var(--u));
+  height: calc(6 * var(--u));
+  border-radius: 50%;
+  background: var(--color-amber);
+}
+.faq-link {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(8 * var(--u));
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--faq-soft);
+  font-family: var(--font-mono);
+  font-size: calc(11.5 * var(--u));
+  cursor: pointer;
+}
+.faq-link svg {
+  width: calc(15 * var(--u));
+  height: calc(15 * var(--u));
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.faq-link:focus-visible {
+  outline: 2px solid var(--color-navy);
+  outline-offset: 3px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .faq-link:hover {
+    color: var(--faq-ink);
+  }
+}
+
+.faq-empty {
+  padding: calc(48 * var(--u)) calc(18 * var(--u));
+  border-top: 1px solid var(--faq-rule);
+  border-bottom: 1px solid var(--faq-rule);
+  font-size: calc(14 * var(--u));
+  line-height: 1.7;
+  color: var(--faq-soft);
+}
+.faq-empty-title {
+  margin: 0 0 calc(8 * var(--u));
+  font-family: var(--font-display);
+  font-size: calc(20 * var(--u));
+  font-weight: 700;
+  color: var(--faq-ink);
+}
+.faq-empty p {
+  margin: 0;
+}
+.faq-empty button,
+.faq-empty a {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-navy);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* ---- Narrow screens ---- */
+
+@media (max-width: 1100px) {
+  .faq-head {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+  .faq-head .lb {
+    max-width: calc(600 * var(--u));
+  }
+}
+
+@media (max-width: 900px) {
+  .faq {
+    padding: calc(12vh + 50 * var(--u)) var(--page-pad) 10vh;
+  }
+  .faq-head {
+    gap: calc(36 * var(--u));
+    padding-bottom: calc(48 * var(--u));
+  }
+  .faq-body {
+    grid-template-columns: 1fr;
+    gap: calc(28 * var(--u));
+    padding-top: calc(32 * var(--u));
+  }
+  .faq-side {
+    position: static;
+    gap: calc(18 * var(--u));
+  }
+  /* Topics become a strip of chips that scrolls sideways. */
+  .faq-topics {
+    flex-direction: row;
+    gap: calc(8 * var(--u));
+    margin: 0 calc(-1 * var(--page-pad));
+    padding: 2px var(--page-pad);
+    border: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .faq-topics::-webkit-scrollbar {
+    display: none;
+  }
+  .faq-topics button {
+    display: flex;
+    flex-shrink: 0;
+    gap: calc(8 * var(--u));
+    padding: calc(8 * var(--u)) calc(14 * var(--u));
+    border: 1px solid var(--faq-rule);
+    border-radius: 999px;
+    font-size: calc(12 * var(--u));
+    white-space: nowrap;
+  }
+  .faq-topics button[aria-pressed="true"] {
+    padding-left: calc(14 * var(--u));
+    border-color: var(--faq-ink);
+    background: var(--faq-ink);
+    color: var(--color-cream);
+  }
+  .faq-topic-code {
+    display: none;
+  }
+  /* The contact card follows the questions on a phone, not before them. */
+  .faq-ask {
+    order: 3;
+  }
+  .faq-side {
+    display: contents;
+  }
+  .faq-body > .faq-side > .faq-search {
+    order: 0;
+  }
+  .faq-body > .faq-side > .faq-topics {
+    order: 1;
+  }
+  .faq-main {
+    order: 2;
+  }
+  .faq-q {
+    grid-template-columns: minmax(0, 1fr) calc(34 * var(--u));
+    gap: calc(6 * var(--u)) calc(14 * var(--u));
+    padding: calc(20 * var(--u)) 2px calc(20 * var(--u)) calc(14 * var(--u));
+  }
+  .faq-num {
+    grid-column: 1;
+    font-size: calc(10.5 * var(--u));
+  }
+  .faq-q-text {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .faq-code {
+    display: none;
+  }
+  .faq-plus {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    width: calc(34 * var(--u));
+    height: calc(34 * var(--u));
+  }
+  .faq-hot {
+    margin-left: calc(8 * var(--u));
+  }
+  .faq-answer {
+    padding: 0 calc(8 * var(--u)) calc(24 * var(--u)) calc(14 * var(--u));
+  }
+  .faq-answer p {
+    font-size: calc(14.5 * var(--u));
+  }
+  .faq-search kbd {
+    display: none;
+  }
+  .lb {
+    padding: calc(16 * var(--u)) calc(14 * var(--u)) calc(14 * var(--u));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .faq-panel,
+  .faq-answer,
+  .faq-plus,
+  .faq-plus i,
+  .faq-row::before,
+  .lb-run-fill,
+  .faq-topics button {
+    transition: none;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Section labels as route markers (EyebrowReveal.tsx)
+ *
+ * Every section label, on every page, is one component: its section's number
+ * on a small plate, like the road codes on the map (M-9, N-5); a dashed
+ * route that draws in; an amber dot that runs along it to the words,
+ * and stays there glowing; and the words themselves in crisp, tracked
+ * capitals. Colour comes from each label's own ground -- amber on the
+ * navy, navy on the cream -- so the plate and route take it too; only
+ * the dot is always amber. It plays once, the first time the label is
+ * well on screen.
+ * ------------------------------------------------------------------ */
+
+p[data-eyebrow] {
+  display: flex;
+  align-items: center;
+  gap: calc(14 * var(--u));
+  font-family: var(--font-mono);
+  font-size: calc(14 * var(--u));
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  opacity: 1;
+}
+/* The plate. */
+p[data-eyebrow]::before {
+  content: attr(data-eyebrow);
+  order: -1;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  min-width: calc(32 * var(--u));
+  height: calc(24 * var(--u));
+  padding: 0 calc(7 * var(--u));
+  border: 1px solid currentColor;
+  border-radius: calc(6 * var(--u));
+  font-size: calc(12 * var(--u));
+  letter-spacing: 0.06em;
+  opacity: 0;
+  transform: translateY(5px);
+  transition:
+    opacity 0.5s ease,
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+/* The route: dashed, drawn in from the plate. */
+p[data-eyebrow] > i {
+  position: relative;
+  flex-shrink: 0;
+  width: calc(52 * var(--u));
+  height: 1px;
+  background: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 7px);
+  opacity: 0.75;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.12s;
+}
+/* The dot that runs it, and stays at the words. */
+p[data-eyebrow] > i::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: calc(7 * var(--u));
+  height: calc(7 * var(--u));
+  margin: calc(-3.5 * var(--u)) 0 0 calc(-3.5 * var(--u));
+  border-radius: 50%;
+  background: var(--color-amber);
+  box-shadow: 0 0 8px rgba(232, 163, 61, 0.9);
+  opacity: 0;
+}
+p[data-eyebrow][data-in]::before {
+  opacity: 1;
+  transform: none;
+}
+p[data-eyebrow][data-in] > i {
+  transform: scaleX(1);
+}
+p[data-eyebrow][data-in] > i::after {
+  animation: eyebrow-run 1s cubic-bezier(0.45, 0, 0.2, 1) 0.75s forwards;
+}
+@keyframes eyebrow-run {
+  0% {
+    left: 0;
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    left: 100%;
+    opacity: 1;
+  }
+}
+/* On the cream the words carry the section's ink at full strength. */
+.faq-eyebrow[data-eyebrow] {
+  color: var(--color-navy);
+}
+@media (max-width: 900px) {
+  p[data-eyebrow] {
+    gap: calc(12 * var(--u));
+    font-size: calc(12.5 * var(--u));
+    letter-spacing: 0.14em;
+  }
+  p[data-eyebrow]::before {
+    min-width: calc(30 * var(--u));
+    height: calc(22 * var(--u));
+    font-size: calc(11 * var(--u));
+  }
+  p[data-eyebrow] > i {
+    width: calc(34 * var(--u));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  p[data-eyebrow]::before,
+  p[data-eyebrow] > i {
+    transition: none;
+  }
+  p[data-eyebrow][data-in] > i::after {
+    animation: none;
+    left: 100%;
+    opacity: 1;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * The footer: the end of the line (SiteFooter.tsx, FooterMotion.tsx)
+ *
+ * The page lifts off it: the contents are held to the bottom of the
+ * window (a transform set per frame) inside a box that clips them, so
+ * they are uncovered rather than scrolled in. A shadow at the top edge
+ * (.zf-shade) is the page's own, cast as it lifts away; it is gone by the
+ * time the footer is fully uncovered. FooterMotion sets its opacity, and
+ * the veil's, straight on the two elements: never a custom property on
+ * the footer, which every element under it would have to be restyled for,
+ * every frame.
+ *
+ * The footer is one screen: at the end of the page all of it is in the
+ * window. Everything is drawn in --fu, the footer's own unit, which is
+ * the page's unit (--u) until the window is shorter than the design
+ * (900): then it shrinks with the height, and the name in the tank
+ * takes whatever height is left over (see .zf-mark). Type stays in
+ * --u -- it is never set smaller than it reads.
+ * ------------------------------------------------------------------ */
+
+.zf {
+  --fu: var(--u);
+  --truck-w: calc(132 * var(--fu));
+  position: relative;
+  z-index: 2;
+  overflow: clip;
+  background: #040920;
+  color: var(--color-cream);
+}
+.zf-shade {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 6;
+  height: calc(90 * var(--fu));
+  background: linear-gradient(180deg, rgba(2, 5, 18, 0.72), rgba(2, 5, 18, 0));
+  pointer-events: none;
+}
+/* Wider than a phone, the footer follows the window's height down. */
+@media (min-width: 901px) {
+  .zf {
+    --fu: max(0.62px, min(var(--u), 100svh / 900));
+  }
+}
+/* The hold, for a touch screen (FooterMotion sets data-hold="css" there):
+   tied to the scroll by the browser itself, so it cannot fall a frame
+   behind a finger the way a script's would. Over the footer's entry --
+   from its top edge reaching the window's bottom to its bottom edge
+   getting there -- the contents slide from a full height up to where they
+   rest, the page's veil clears, and its shadow goes. */
+@supports (animation-timeline: view()) {
+  .zf[data-hold="css"] {
+    view-timeline: --zf-entry block;
+  }
+  .zf[data-hold="css"] .zf-inner,
+  .zf[data-hold="css"] .zf-veil,
+  .zf[data-hold="css"] .zf-shade {
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-timeline: --zf-entry;
+    animation-range: entry 0% entry 100%;
+  }
+  .zf[data-hold="css"] .zf-inner {
+    animation-name: zf-hold;
+  }
+  .zf[data-hold="css"] .zf-veil {
+    animation-name: zf-veil;
+  }
+  .zf[data-hold="css"] .zf-shade {
+    animation-name: zf-shade;
+  }
+}
+@keyframes zf-hold {
+  from {
+    transform: translate3d(0, -100%, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+@keyframes zf-veil {
+  from {
+    opacity: var(--veil);
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes zf-shade {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+.zf-inner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  /* A screen, and no more than the design's own height: on a tall, narrow
+     window the footer stops there instead of stretching into a void
+     above the name. */
+  min-height: min(100svh, calc(1000 * var(--fu)));
+  padding: calc(72 * var(--fu)) var(--page-pad) 0;
+  background:
+    radial-gradient(ellipse 70% 55% at 80% 6%, rgba(36, 87, 255, 0.22), transparent 62%),
+    radial-gradient(ellipse 55% 45% at 8% 96%, rgba(232, 163, 61, 0.11), transparent 62%),
+    linear-gradient(180deg, #081236 0%, #060d2a 55%, #040920 100%);
+  will-change: transform;
+}
+/* The halftone field, faint, as on the hero. */
+.zf-inner::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(94, 115, 180, 0.3) 1px, transparent 1.5px);
+  background-size: 14px 14px;
+  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 75% 18%, #000 0%, transparent 75%);
+  mask-image: radial-gradient(ellipse 80% 60% at 75% 18%, #000 0%, transparent 75%);
+  pointer-events: none;
+}
+.zf-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: #02051a;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+/* ---- The pitch, the clock and the links ---- */
+
+.zf-top {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr);
+  align-items: start;
+  gap: clamp(32 * var(--fu), 6vw, 110 * var(--fu));
+}
+.zf-eyebrow[data-eyebrow] {
+  margin: 0;
+  color: var(--color-amber);
+}
+.zf-title {
+  margin: calc(18 * var(--fu)) 0 calc(16 * var(--fu));
+  font-family: var(--font-display);
+  font-size: clamp(38 * var(--fu), 5vw, 72 * var(--fu));
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.035em;
+}
+.zf-title em {
+  font-style: normal;
+  color: var(--color-amber);
+}
+.zf-lede {
+  max-width: 58ch;
+  margin: 0 0 calc(22 * var(--fu));
+  font-size: calc(14.5 * var(--u));
+  line-height: 1.6;
+  color: rgba(216, 227, 255, 0.8);
+}
+.zf-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(13 * var(--fu));
+}
+.zf-cta {
+  font-size: calc(14.5 * var(--u));
+  font-weight: 500;
+}
+.zf-cta:focus-visible {
+  outline: 2px solid var(--color-amber);
+  outline-offset: 4px;
+}
+
+.zf-side {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: calc(20 * var(--fu));
+}
+.zf-clock {
+  position: relative;
+  padding: calc(14 * var(--fu)) calc(20 * var(--fu)) calc(12 * var(--fu));
+  border: 1px solid rgba(216, 227, 255, 0.12);
+  border-radius: calc(16 * var(--fu));
+  background: linear-gradient(160deg, rgba(36, 87, 255, 0.13), rgba(8, 18, 54, 0.45));
+  box-shadow:
+    inset 0 1px 0 rgba(216, 227, 255, 0.08),
+    0 30px 60px -30px rgba(0, 0, 0, 0.7);
+}
+.zf-clock-head,
+.zf-clock-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: calc(12 * var(--fu));
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: calc(11 * var(--u));
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(216, 227, 255, 0.58);
+}
+.zf-clock-head {
+  margin-bottom: calc(10 * var(--fu));
+}
+.zf-clock-head span:last-child {
+  color: var(--color-amber);
+}
+.zf-clock-row {
+  display: flex;
+  align-items: center;
+  gap: clamp(16 * var(--fu), 2vw, 28 * var(--fu));
+}
+.zf-clock-flaps {
+  flex-shrink: 0;
+  font-size: clamp(30 * var(--fu), 3vw, 44 * var(--fu));
+}
+/* Today's sun over Karachi: its height through the day, above and below
+   the horizon, and where it is now. */
+.zf-sun {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+.zf-sun svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.zf-sun-night {
+  fill: none;
+  stroke: rgba(216, 227, 255, 0.22);
+  stroke-width: 1.2;
+  stroke-dasharray: 2 3;
+}
+.zf-sun-day {
+  fill: none;
+  stroke: var(--color-amber);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+.zf-sun-horizon {
+  stroke: rgba(216, 227, 255, 0.3);
+  stroke-width: 1;
+}
+.zf-sun-dot {
+  fill: #ffd08a;
+  filter: drop-shadow(0 0 5px rgba(232, 163, 61, 0.95));
+}
+.zf-sun-dot--down {
+  fill: var(--color-mist);
+  filter: none;
+  opacity: 0.7;
+}
+.zf-sun figcaption {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px calc(12 * var(--fu));
+  margin-top: calc(4 * var(--fu));
+  font-family: var(--font-mono);
+  font-size: calc(10 * var(--u));
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(216, 227, 255, 0.55);
+}
+/* The minute, filling across under the board: one slow animation, begun
+   --from seconds in. */
+.zf-clock-minute {
+  position: relative;
+  z-index: 1;
+  display: block;
+  height: 2px;
+  margin: calc(12 * var(--fu)) 0 -1.5px;
+  border-radius: 2px;
+  background: var(--color-amber);
+  box-shadow: 0 0 8px rgba(232, 163, 61, 0.7);
+  transform: scaleX(0);
+  transform-origin: left;
+  animation: zf-minute 60s linear both;
+  animation-delay: calc(var(--from, 0) * -1s);
+}
+@keyframes zf-minute {
+  to {
+    transform: scaleX(1);
+  }
+}
+.zf-clock-foot {
+  padding-top: calc(9 * var(--fu));
+  border-top: 1px solid rgba(216, 227, 255, 0.12);
+  letter-spacing: 0.12em;
+}
+.zf-clock-sec {
+  min-width: 3ch;
+  color: var(--color-amber);
+  font-weight: 700;
+}
+
+.zf-cols {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: calc(24 * var(--fu));
+}
+.zf-col-head {
+  margin: 0 0 calc(10 * var(--fu));
+  font-family: var(--font-mono);
+  font-size: calc(11 * var(--u));
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(216, 227, 255, 0.5);
+}
+.zf-cols ul {
+  display: grid;
+  gap: calc(4 * var(--fu));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* The link is the row: a list item's own line box would add its strut
+   around the link and make every row taller than it. */
+.zf-cols li {
+  display: flex;
+}
+/* A link is a small route marker too: on hover a dashed route draws in
+   before it and an amber dot arrives at the words. */
+.zf-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  color: var(--color-cream);
+  font-size: calc(14.5 * var(--u));
+  text-decoration: none;
+  transition:
+    color 0.3s ease,
+    gap 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.zf-link::before {
+  content: "";
+  order: -2;
+  width: 0;
+  height: 1px;
+  background: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 7px);
+  transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.zf-link::after {
+  content: "";
+  order: -1;
+  width: calc(6 * var(--fu));
+  height: calc(6 * var(--fu));
+  margin-right: calc(-6 * var(--fu));
+  border-radius: 50%;
+  background: var(--color-amber);
+  box-shadow: 0 0 8px rgba(232, 163, 61, 0.9);
+  transform: scale(0);
+  transition:
+    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) 0.12s,
+    margin 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+/* Hover only for a real pointer: a tap would leave it stuck on. */
+@media (hover: hover) and (pointer: fine) {
+  .zf-link:hover {
+    gap: calc(8 * var(--fu));
+    color: var(--color-amber);
+  }
+  .zf-link:hover::before {
+    width: calc(18 * var(--fu));
+  }
+  .zf-link:hover::after {
+    margin-right: 0;
+    transform: scale(1);
+  }
+}
+.zf-link:focus-visible {
+  gap: calc(8 * var(--fu));
+  color: var(--color-amber);
+}
+.zf-link:focus-visible::before {
+  width: calc(18 * var(--fu));
+}
+.zf-link:focus-visible::after {
+  margin-right: 0;
+  transform: scale(1);
+}
+.zf-link:focus-visible {
+  outline: 2px solid var(--color-amber);
+  outline-offset: 4px;
+  border-radius: calc(4 * var(--fu));
+}
+
+/* ---- The corridor ---- */
+
+.zf-road {
+  position: relative;
+  height: calc(96 * var(--fu));
+  margin-top: calc(26 * var(--fu));
+}
+.zf-lane,
+.zf-stops {
+  position: absolute;
+  top: calc(56 * var(--fu));
+  height: calc(12 * var(--fu));
+}
+/* A motorway: two edges and an amber centre line. */
+.zf-lane {
+  inset-inline: 0;
+  border-block: 1px solid rgba(216, 227, 255, 0.26);
+  background: repeating-linear-gradient(90deg, rgba(232, 163, 61, 0.6) 0 14px, transparent 14px 26px) center / 100% 1px
+    no-repeat;
+}
+/* Inset by half the tanker, so its middle is over the first stop at the
+   start of the road and over the last at the end. */
+.zf-stops {
+  z-index: 1;
+  inset-inline: calc(var(--truck-w) / 2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.zf-stop {
+  position: absolute;
+  top: 0;
+  left: calc(var(--at) * 100%);
+  width: calc(100% / var(--legs));
+  height: calc(12 * var(--fu));
+}
+.zf-stop-dot {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: calc(10 * var(--fu));
+  height: calc(10 * var(--fu));
+  margin: calc(-5 * var(--fu)) 0 0 calc(-5 * var(--fu));
+  border: 1.5px solid rgba(216, 227, 255, 0.5);
+  border-radius: 50%;
+  background: #060d2a;
+  transition:
+    background 0.4s ease,
+    border-color 0.4s ease,
+    box-shadow 0.4s ease;
+}
+.zf-stop[data-lit] .zf-stop-dot {
+  border-color: var(--color-amber);
+  background: var(--color-amber);
+  box-shadow:
+    0 0 0 4px rgba(232, 163, 61, 0.18),
+    0 0 12px rgba(232, 163, 61, 0.85);
+}
+.zf-stop-city {
+  position: absolute;
+  top: calc(24 * var(--fu));
+  left: 0;
+  font-family: var(--font-mono);
+  font-size: calc(11 * var(--u));
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: rgba(216, 227, 255, 0.45);
+  transform: translateX(-50%);
+  transition: color 0.4s ease;
+}
+.zf-stop[data-lit] .zf-stop-city {
+  color: var(--color-cream);
+}
+/* The road on to the next stop, on a plate at the halfway point. */
+.zf-stop-road {
+  position: absolute;
+  top: calc(22 * var(--fu));
+  left: 50%;
+  padding: calc(3 * var(--fu)) calc(5 * var(--fu)) 2px;
+  border: 1px solid rgba(232, 163, 61, 0.45);
+  border-radius: calc(4 * var(--fu));
+  font-family: var(--font-mono);
+  font-size: calc(10 * var(--u));
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--color-amber);
+  transform: translateX(-50%);
+}
+.zf-stamp {
+  position: absolute;
+  top: calc(14 * var(--fu));
+  right: calc(var(--truck-w) + 12 * var(--fu));
+  padding: calc(6 * var(--fu)) calc(10 * var(--fu)) calc(5 * var(--fu));
+  border: 2px solid var(--color-amber);
+  border-radius: calc(6 * var(--fu));
+  font-family: var(--font-mono);
+  font-size: calc(12 * var(--u));
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-amber);
+  opacity: 0;
+  transform: rotate(-9deg) scale(1.8);
+  transition:
+    opacity 0.25s ease,
+    transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
+}
+.zf-road[data-delivered] .zf-stamp {
+  opacity: 0.95;
+  transform: rotate(-9deg) scale(1);
+}
+
+/* ---- The tanker ---- */
+
+.zf-truck {
+  position: absolute;
+  top: calc(2 * var(--fu));
+  left: 0;
+  z-index: 2;
+  width: var(--truck-w);
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  will-change: transform;
+}
+.zf-truck:focus-visible {
+  outline: 2px solid var(--color-amber);
+  outline-offset: 6px;
+  border-radius: calc(10 * var(--fu));
+}
+.zf-truck-face {
+  display: block;
+  transition: transform 0.5s cubic-bezier(0.65, 0, 0.35, 1);
+}
+.zf-truck-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.zf-truck-body {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+.zf-chains {
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+}
+.zf-tank {
+  fill: url(#zf-tank);
+}
+.zf-tank-shine {
+  fill: none;
+  stroke: rgba(255, 240, 210, 0.75);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.zf-tank-rib {
+  fill: none;
+  stroke: rgba(120, 70, 15, 0.45);
+  stroke-width: 1.2;
+}
+.zf-tank-mark {
+  transform-box: fill-box;
+  transform-origin: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  fill: var(--color-navy-deep);
+  /* Turns with the tanker (.zf-truck-face), so its two flips cancel all
+     the way through and the lettering is never seen back to front. */
+  transition: transform 0.5s cubic-bezier(0.65, 0, 0.35, 1);
+}
+/* Lettering reads the right way round from either side, as on a real
+   tanker. */
+.zf-truck[data-back] .zf-tank-mark {
+  transform: scaleX(-1);
+}
+.zf-cab {
+  fill: var(--color-cream);
+}
+.zf-window {
+  fill: var(--color-blue);
+}
+.zf-cab-stripe {
+  stroke: var(--color-amber);
+  stroke-width: 3;
+}
+.zf-crown {
+  fill: var(--color-amber);
+  stroke: #ffd08a;
+  stroke-width: 0.8;
+  stroke-linejoin: round;
+}
+.zf-stud {
+  fill: var(--color-cream);
+}
+.zf-chassis {
+  fill: #1b2a66;
+}
+.zf-chains path {
+  fill: none;
+  stroke: #ffd08a;
+  stroke-width: 0.6;
+}
+.zf-chains circle {
+  fill: var(--color-amber);
+}
+.zf-tyre {
+  fill: #0a0f24;
+  stroke: rgba(216, 227, 255, 0.55);
+  stroke-width: 1.2;
+}
+.zf-hub {
+  fill: #1b2a66;
+  stroke: rgba(216, 227, 255, 0.6);
+  stroke-width: 0.8;
+}
+.zf-spoke {
+  fill: none;
+  stroke: rgba(216, 227, 255, 0.75);
+  stroke-width: 0.9;
+}
+/* The horn: a bubble over the cab, and a hop. */
+.zf-honk {
+  position: absolute;
+  bottom: 100%;
+  left: 64%;
+  margin-bottom: 2px;
+  padding: calc(6 * var(--fu)) calc(9 * var(--fu)) calc(5 * var(--fu));
+  border-radius: calc(10 * var(--fu)) calc(10 * var(--fu)) calc(10 * var(--fu)) 2px;
+  background: var(--color-cream);
+  font-family: var(--font-mono);
+  font-size: calc(11 * var(--u));
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--color-navy-deep);
+  opacity: 0;
+  transform-origin: 0 100%;
+  pointer-events: none;
+}
+.zf-truck[data-back] .zf-honk {
+  left: auto;
+  right: 64%;
+  border-radius: calc(10 * var(--fu)) calc(10 * var(--fu)) 2px calc(10 * var(--fu));
+  transform-origin: 100% 100%;
+}
+.zf-truck[data-honk] .zf-honk {
+  animation: zf-honk 1.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.zf-truck[data-honk] .zf-truck-svg {
+  animation: zf-hop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes zf-honk {
+  0% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.6);
+  }
+  14%,
+  78% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+@keyframes zf-hop {
+  0%,
+  100% {
+    transform: none;
+  }
+  35% {
+    transform: translateY(-4px);
+  }
+}
+
+/* ---- The name, as a tank ---- */
+
+/* The name's box takes the height the rest of the footer leaves, up to
+   the height it has at the page's full width (--name-h: the letters' own
+   proportions, 53.51 by 318.49, across the window less the page's side
+   padding) and down to a floor. The name is drawn
+   at that height, centred, so on a window too short for the full width
+   it is narrower -- never cut off, and never pushing the footer past the
+   screen. Any height to spare goes above it. The svg is exactly as wide
+   as its letters, so its box is theirs for the pointer. */
+.zf-mark {
+  --mark-gap: calc(20 * var(--fu));
+  --name-h: calc((100vw - 2 * var(--page-pad)) * 0.168);
+  position: relative;
+  flex: 1 1 0;
+  min-height: calc(min(var(--name-h), 150 * var(--fu)) + var(--mark-gap));
+  max-height: calc(var(--name-h) + var(--mark-gap));
+  margin-top: auto;
+}
+.zf-mark-svg {
+  position: absolute;
+  inset: var(--mark-gap) 0 0;
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: calc(100% - var(--mark-gap));
+  margin-inline: auto;
+  aspect-ratio: 318.49 / 53.51;
+  overflow: visible;
+  cursor: crosshair;
+  touch-action: pan-y;
+}
+.zf-tank-empty {
+  fill: #0a1646;
+}
+#zf-dots-dim circle {
+  fill: rgba(94, 115, 180, 0.5);
+}
+#zf-dots-oil circle {
+  fill: rgba(130, 70, 10, 0.5);
+}
+.zf-oil-line {
+  fill: none;
+  stroke: #ffe0a8;
+  stroke-width: 0.45;
+}
+.zf-mark-outline {
+  fill: none;
+  stroke: rgba(248, 241, 228, 0.42);
+  stroke-width: 1.2px;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+.zf-bubble {
+  fill: rgba(255, 224, 168, 0.45);
+  stroke: rgba(255, 240, 210, 0.75);
+  stroke-width: 0.12;
+}
+.zf-drop {
+  fill: #f6c170;
+}
+
+/* ---- The last line ---- */
+
+.zf-base {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(16 * var(--fu));
+  margin-top: calc(10 * var(--fu));
+  padding: calc(12 * var(--fu)) 0 calc(16 * var(--fu));
+  border-top: 1px solid rgba(216, 227, 255, 0.1);
+  font-family: var(--font-mono);
+  font-size: calc(11.5 * var(--u));
+  color: rgba(216, 227, 255, 0.6);
+}
+.zf-motto {
+  font-style: italic;
+  letter-spacing: 0.04em;
+  color: var(--color-amber);
+}
+.zf-return {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(10 * var(--fu));
+  padding: calc(8 * var(--fu)) calc(14 * var(--fu)) calc(8 * var(--fu)) calc(16 * var(--fu));
+  border: 1px solid rgba(216, 227, 255, 0.22);
+  border-radius: 999px;
+  background: rgba(216, 227, 255, 0.04);
+  font-family: var(--font-mono);
+  font-size: calc(11.5 * var(--u));
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-cream);
+  cursor: pointer;
+  transition:
+    border-color 0.3s ease,
+    background 0.3s ease,
+    color 0.3s ease,
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.zf-return svg {
+  width: calc(14 * var(--fu));
+  height: calc(14 * var(--fu));
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@media (hover: hover) and (pointer: fine) {
+  .zf-return:hover {
+    border-color: var(--color-amber);
+    background: rgba(232, 163, 61, 0.08);
+    color: var(--color-amber);
+  }
+  .zf-return:hover svg {
+    transform: translateY(-3px);
+  }
+}
+.zf-return:focus-visible {
+  border-color: var(--color-amber);
+  background: rgba(232, 163, 61, 0.08);
+  color: var(--color-amber);
+}
+.zf-return:active {
+  transform: scale(0.97);
+}
+.zf-return:focus-visible {
+  outline: 2px solid var(--color-amber);
+  outline-offset: 3px;
+}
+
+@media (max-width: 900px) {
+  .zf {
+    --truck-w: calc(88 * var(--fu));
+  }
+  .zf-inner {
+    min-height: 0;
+    padding-top: calc(60 * var(--fu));
+  }
+  .zf-top {
+    grid-template-columns: minmax(0, 1fr);
+    gap: calc(32 * var(--fu));
+  }
+  .zf-road {
+    height: calc(92 * var(--fu));
+    margin-top: calc(30 * var(--fu));
+  }
+  .zf-lane,
+  .zf-stops {
+    top: calc(46 * var(--fu));
+  }
+  .zf-truck {
+    top: calc(4 * var(--fu));
+  }
+  /* Seven stops don't fit across a phone by name: the two ends do. */
+  .zf-stop-road,
+  .zf-stop:not(:first-child):not(:last-child) .zf-stop-city {
+    display: none;
+  }
+  .zf-stamp {
+    top: calc(6 * var(--fu));
+    font-size: calc(10 * var(--u));
+  }
+  .zf-base {
+    flex-wrap: wrap;
+    row-gap: calc(12 * var(--fu));
+  }
+}
+/* A tablet held upright is wide enough for the pitch and the clock side by
+   side, as on a desktop: the footer then stays about a screen instead of
+   two. */
+@media (min-width: 640px) and (max-width: 900px) {
+  .zf-top {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: calc(28 * var(--fu));
+  }
+}
+/* A phone: the whole footer in one screen, as on a desktop. The title and
+   the two buttons carry the pitch, so the eyebrow and the paragraph under
+   it give way (the same words are on the page above); the sun sits beside
+   the board rather than under it; the links, the road, the name and the
+   last line are each a little tighter. */
+@media (max-width: 639px) {
+  .zf-inner {
+    padding-top: calc(40 * var(--fu));
+  }
+  .zf .zf-eyebrow[data-eyebrow],
+  .zf-lede {
+    display: none;
+  }
+  .zf-top {
+    gap: calc(16 * var(--fu));
+  }
+  .zf-title {
+    margin: 0 0 calc(14 * var(--fu));
+    font-size: clamp(28 * var(--u), 9vw, 40 * var(--u));
+  }
+  .zf-side {
+    gap: calc(14 * var(--fu));
+  }
+  .zf-clock {
+    padding: calc(12 * var(--fu)) calc(14 * var(--fu)) calc(10 * var(--fu));
+  }
+  .zf-clock-head {
+    margin-bottom: calc(8 * var(--fu));
+  }
+  .zf-clock-row {
+    gap: calc(14 * var(--fu));
+  }
+  .zf-clock-flaps {
+    font-size: calc(26 * var(--u));
+  }
+  /* Sunrise and sunset on one line under the curve. */
+  .zf-sun figcaption {
+    column-gap: calc(8 * var(--fu));
+    font-size: calc(9 * var(--u));
+    letter-spacing: 0.04em;
+  }
+  .zf-clock-minute {
+    margin-top: calc(10 * var(--fu));
+  }
+  .zf-clock-foot {
+    padding-top: calc(7 * var(--fu));
+  }
+  /* "Contract carriage" is the longest link: the first column gets the
+     room for it. */
+  .zf-cols {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+    gap: calc(16 * var(--fu));
+  }
+  .zf-col-head {
+    margin-bottom: calc(8 * var(--fu));
+  }
+  .zf-cols ul {
+    gap: calc(3 * var(--fu));
+  }
+  .zf-road {
+    height: calc(76 * var(--fu));
+    margin-top: calc(16 * var(--fu));
+  }
+  .zf-lane,
+  .zf-stops {
+    top: calc(38 * var(--fu));
+  }
+  .zf-truck {
+    top: calc(-2 * var(--fu));
+  }
+  .zf-stop-city {
+    top: calc(22 * var(--fu));
+  }
+  .zf-stamp {
+    top: 0;
+  }
+  .zf-mark {
+    --mark-gap: calc(10 * var(--fu));
+  }
+  /* The horn and the way back first, the small print under them. */
+  .zf-base {
+    margin-top: calc(8 * var(--fu));
+    padding: calc(10 * var(--fu)) 0 calc(12 * var(--fu));
+    row-gap: calc(8 * var(--fu));
+  }
+  .zf-motto {
+    order: 1;
+  }
+  .zf-return {
+    order: 2;
+  }
+  .zf-base > span:first-child {
+    order: 3;
+    flex-basis: 100%;
+  }
+}
+/* The smallest phones: the coordinates give way to the date, and the
+   copyright to its first words, so neither wraps. */
+@media (max-width: 420px) {
+  .zf-clock-foot span:last-child {
+    display: none;
+  }
+}
+@media (max-width: 400px) {
+  .zf-tagline {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .zf-inner,
+  .zf-truck {
+    will-change: auto;
+  }
+  .zf-truck[data-honk] .zf-truck-svg {
+    animation: none;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * The cursor: a drop of oil (CustomCursor.tsx)
+ *
+ * A point under the hand and a drop that follows it. The drop is drawn
+ * in cream with a difference blend, so over the navy it shows warm gold
+ * and over the cream it shows ink: it always reads, without knowing
+ * what it is over. Movement is set per frame as a transform; size,
+ * shape and fill change with CSS by mode.
+ * ------------------------------------------------------------------ */
+
+@media (hover: hover) and (pointer: fine) {
+  html.zc-on,
+  html.zc-on * {
+    cursor: none !important;
+  }
+  html.zc-on :is(input, textarea, [contenteditable="true"]) {
+    cursor: text !important;
+  }
+  html.zc-on :is(input[type="checkbox"], input[type="radio"], input[type="submit"], input[type="button"]) {
+    cursor: none !important;
+  }
+}
+
+/* No box of its own: a wrapper with a z-index or an opacity would be a
+   layer of its own, and the drop's blend would mix with that empty
+   layer instead of the page. Each piece sits on the page directly. */
+.zc {
+  display: contents;
+}
+.zc-drop,
+.zc-dot,
+.zc-splash {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 2147483000;
+  translate: -50% -50%;
+  pointer-events: none;
+  will-change: transform;
+}
+.zc:not([data-on]) :is(.zc-drop, .zc-dot) {
+  opacity: 0 !important;
+}
+.zc-drop {
+  display: grid;
+  place-items: center;
+  width: calc(22 * var(--u));
+  height: calc(22 * var(--u));
+  border: 1px solid rgba(248, 241, 228, 0.55);
+  border-radius: 999px;
+  mix-blend-mode: difference;
+  transition:
+    width 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+    height 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+    border-radius 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 0.3s ease,
+    border-color 0.3s ease,
+    opacity 0.3s ease;
+}
+.zc-dot {
+  width: calc(5 * var(--u));
+  height: calc(5 * var(--u));
+  border-radius: 50%;
+  background: var(--color-amber);
+  box-shadow: 0 0 6px rgba(232, 163, 61, 0.55);
+  transition:
+    width 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+    height 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 0.25s ease;
+}
+.zc-label {
+  font-family: var(--font-mono);
+  font-size: calc(9.5 * var(--u));
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: #000;
+  opacity: 0;
+  transform: scale(0.6);
+  transition:
+    opacity 0.25s ease,
+    transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Over a link: the drop swells, and a little of it fills. */
+.zc[data-mode="link"] .zc-drop {
+  width: calc(36 * var(--u));
+  height: calc(36 * var(--u));
+  background-color: rgba(248, 241, 228, 0.07);
+}
+/* Wrapping a button: its size and corners are set from the button. */
+.zc[data-mode="wrap"] .zc-drop {
+  border-color: rgba(248, 241, 228, 0.4);
+  background-color: rgba(248, 241, 228, 0.03);
+}
+.zc[data-mode="wrap"] .zc-dot {
+  width: calc(4 * var(--u));
+  height: calc(4 * var(--u));
+}
+/* Holding a word: a full drop, the word knocked out of it. */
+.zc[data-mode="label"] .zc-drop {
+  width: calc(58 * var(--u));
+  height: calc(58 * var(--u));
+  border-color: transparent;
+  background-color: var(--color-cream);
+}
+.zc[data-mode="label"] .zc-label {
+  opacity: 1;
+  transform: none;
+}
+.zc[data-mode="label"]:not([data-tag]) .zc-dot {
+  opacity: 0;
+}
+/* As a tag beside a small target: a pill, not a disc over it. */
+.zc[data-mode="label"][data-tag] .zc-drop {
+  width: calc(60 * var(--u));
+  height: calc(22 * var(--u));
+}
+/* Over text to be typed: out of the way. */
+.zc[data-mode="text"] .zc-drop,
+.zc[data-mode="text"] .zc-dot {
+  opacity: 0;
+}
+/* Pressed: the drop squeezes in and the point swells. */
+.zc[data-down] .zc-drop {
+  width: calc(17 * var(--u));
+  height: calc(17 * var(--u));
+}
+.zc[data-down][data-mode="link"] .zc-drop {
+  width: calc(29 * var(--u));
+  height: calc(29 * var(--u));
+}
+.zc[data-down][data-mode="label"] .zc-drop {
+  width: calc(50 * var(--u));
+  height: calc(50 * var(--u));
+}
+.zc[data-down][data-mode="label"][data-tag] .zc-drop {
+  width: calc(54 * var(--u));
+  height: calc(20 * var(--u));
+}
+.zc[data-down] .zc-dot {
+  width: calc(7 * var(--u));
+  height: calc(7 * var(--u));
+}
+/* Let go: a ring of amber thrown off the point. It grows by `scale`,
+   not by its size, so it runs on the compositor; `scale` rather than
+   `transform`, which carries its position. */
+.zc-splash {
+  width: calc(40 * var(--u));
+  height: calc(40 * var(--u));
+  border: 1px solid rgba(232, 163, 61, 0.7);
+  border-radius: 50%;
+  animation: zc-splash 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes zc-splash {
+  from {
+    scale: 0.15;
+    opacity: 0.9;
+  }
+  to {
+    scale: 1;
+    opacity: 0;
+  }
+}

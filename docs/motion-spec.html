@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Motion specification — edible oil logistics site</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#16150F;
+  --body:#38352A;
+  --paper:#F2F0E9;
+  --surface:#FFFFFF;
+  --oil:#9C6514;
+  --oil-tint:#F6EBD6;
+  --steel:#6C6858;
+  --rule:#DCD7C8;
+  --rule-soft:#E8E4D8;
+  --sans:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ink:#F0EDE2;
+    --body:#C3BFAF;
+    --paper:#131208;
+    --surface:#1D1B11;
+    --oil:#D9A44A;
+    --oil-tint:#2A2212;
+    --steel:#918C79;
+    --rule:#33301F;
+    --rule-soft:#262415;
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#F0EDE2;
+  --body:#C3BFAF;
+  --paper:#131208;
+  --surface:#1D1B11;
+  --oil:#D9A44A;
+  --oil-tint:#2A2212;
+  --steel:#918C79;
+  --rule:#33301F;
+  --rule-soft:#262415;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--body);
+  font-family:var(--sans);
+  font-size:16px;
+  line-height:1.65;
+  font-variant-numeric:tabular-nums;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:860px;margin:0 auto;padding:0 24px 96px}
+header.masthead{
+  border-bottom:2px solid var(--ink);
+  padding:64px 0 24px;
+  margin-bottom:8px;
+}
+.kicker{
+  font-family:var(--mono);
+  font-size:12px;
+  color:var(--steel);
+  letter-spacing:0.04em;
+  margin:0 0 20px;
+}
+h1{
+  font-size:clamp(30px,5vw,44px);
+  line-height:1.1;
+  font-weight:600;
+  color:var(--ink);
+  margin:0 0 18px;
+  letter-spacing:-0.02em;
+  max-width:16ch;
+}
+.standfirst{font-size:18px;max-width:62ch;margin:0 0 28px;color:var(--body)}
+.meta{
+  display:flex;flex-wrap:wrap;gap:0 40px;
+  font-family:var(--mono);font-size:12.5px;color:var(--steel);
+  padding-bottom:4px;
+}
+.meta b{color:var(--ink);font-weight:500}
+section{padding:52px 0;border-bottom:1px solid var(--rule)}
+section:last-of-type{border-bottom:none}
+h2{
+  font-size:13px;font-family:var(--mono);font-weight:500;
+  color:var(--oil);margin:0 0 8px;letter-spacing:0.02em;
+}
+h3{
+  font-size:26px;font-weight:600;color:var(--ink);
+  margin:0 0 20px;letter-spacing:-0.015em;line-height:1.2;
+}
+h4{
+  font-size:17px;font-weight:600;color:var(--ink);
+  margin:34px 0 10px;
+}
+p{max-width:68ch;margin:0 0 16px}
+strong{color:var(--ink);font-weight:600}
+code{
+  font-family:var(--mono);font-size:0.86em;
+  background:var(--oil-tint);color:var(--oil);
+  padding:2px 6px;border-radius:3px;
+}
+table{
+  width:100%;border-collapse:collapse;margin:20px 0 8px;
+  font-size:14.5px;display:block;overflow-x:auto;
+}
+thead th{
+  text-align:left;font-family:var(--mono);font-size:11.5px;font-weight:500;
+  color:var(--steel);padding:0 16px 8px 0;
+  border-bottom:1px solid var(--ink);white-space:nowrap;
+}
+tbody td{
+  padding:11px 16px 11px 0;border-bottom:1px solid var(--rule-soft);
+  vertical-align:top;
+}
+tbody tr:last-child td{border-bottom:none}
+td.name{color:var(--ink);font-weight:600;white-space:nowrap}
+td.mono{font-family:var(--mono);font-size:13px;color:var(--oil);white-space:nowrap}
+pre{
+  background:var(--surface);border:1px solid var(--rule);
+  border-radius:4px;padding:18px 20px;overflow-x:auto;
+  font-family:var(--mono);font-size:13px;line-height:1.7;
+  color:var(--body);margin:18px 0;
+}
+pre .c{color:var(--steel)}
+pre .k{color:var(--oil)}
+.rule-list{list-style:none;padding:0;margin:18px 0 0;counter-reset:r}
+.rule-list li{
+  counter-increment:r;position:relative;
+  padding:0 0 18px 42px;max-width:68ch;
+}
+.rule-list li::before{
+  content:counter(r,decimal-leading-zero);
+  position:absolute;left:0;top:1px;
+  font-family:var(--mono);font-size:12px;color:var(--oil);
+}
+.rule-list b{display:block;color:var(--ink);font-weight:600;margin-bottom:2px}
+.beat{
+  border-left:2px solid var(--rule);
+  padding:2px 0 2px 22px;margin:0 0 26px;
+}
+.beat:last-child{margin-bottom:0}
+.beat-head{
+  display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:6px;
+}
+.beat-num{font-family:var(--mono);font-size:12px;color:var(--oil)}
+.beat-name{color:var(--ink);font-weight:600;font-size:17px}
+.beat p{margin:0 0 10px;font-size:15.5px}
+.beat p:last-child{margin-bottom:0}
+.spec{
+  font-family:var(--mono);font-size:12.5px;color:var(--steel);
+  line-height:1.8;margin-top:8px;
+}
+.spec span{color:var(--ink)}
+.note{
+  background:var(--oil-tint);border-radius:4px;
+  padding:18px 22px;margin:24px 0 0;
+}
+.note p{margin:0;font-size:15px;max-width:none}
+.note p+p{margin-top:10px}
+.check{list-style:none;padding:0;margin:16px 0 0}
+.check li{
+  padding:11px 0 11px 30px;position:relative;
+  border-bottom:1px solid var(--rule-soft);max-width:68ch;font-size:15.5px;
+}
+.check li:last-child{border-bottom:none}
+.check li::before{
+  content:"";position:absolute;left:2px;top:19px;
+  width:11px;height:11px;border:1px solid var(--steel);border-radius:2px;
+}
+footer{
+  padding:40px 0 0;font-family:var(--mono);font-size:12px;color:var(--steel);
+  border-top:2px solid var(--ink);
+}
+@media (max-width:640px){
+  header.masthead{padding-top:40px}
+  section{padding:40px 0}
+  .meta{gap:0 24px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="masthead">
+  <p class="kicker">Motion specification / v1 draft</p>
+  <h1>The corridor: motion spec</h1>
+  <p class="standfirst">Every animation on this site answers one question: how does edible oil get from a vessel at Port Qasim to a refinery gate in Punjab, and who guarantees it arrives? Motion that does not serve that story does not ship.</p>
+  <div class="meta">
+    <div><b>Client</b> — edible oil freight &amp; contract carriage</div>
+    <div><b>Design</b> — Osaid</div>
+    <div><b>Build</b> — Ali</div>
+    <div><b>Review</b> — Faizan</div>
+  </div>
+</header>
+
+<section>
+  <h2>Premise</h2>
+  <h3>One corridor, drawn honestly</h3>
+  <p>The organising idea is a single physical route rather than a network diagram. Palm oil discharges at Port Qasim into shore tanks, then moves inland by road tanker along the M-9, N-5, M-5 and M-2 to refineries and ghee mills in Multan, Faisalabad and Lahore.</p>
+  <p>That corridor is the site's spine. The homepage traces it end to end. Interior pages are points along it. This is the difference between a map that could belong to any freight company and one that could only belong to this client.</p>
+  <div class="note">
+    <p><strong>Two rules that protect the concept.</strong></p>
+    <p>Draw only the routes the client actually runs, weighted by volume. Everything else on the map stays faint context. A complete highway network is generic; a weighted one is a credibility claim.</p>
+    <p>Route animation is viscous, never electric. Liquid filling a pipe, not a data packet firing. Slow, directional, warm. This single choice is what separates the site from every competitor in the category.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Principles</h2>
+  <h3>What motion is for here</h3>
+  <ol class="rule-list">
+    <li><b>Weight over speed</b>A tanker carries 30 tonnes. Nothing on this site should feel light, springy or bouncy. No overshoot easings anywhere — <code>back</code>, <code>elastic</code> and <code>bounce</code> are banned outright. Overshoot reads as imprecision, and imprecision is the opposite of what a carriage contract sells.</li>
+    <li><b>Motion argues the business</b>Every animated element refers to something real: liquid moving, a route being covered, a fleet holding schedule. If an animation cannot be traced to a physical fact about the client's operation, cut it.</li>
+    <li><b>One loud moment</b>The hero map is the memorable thing. Everything below it is quiet, dense and confident. If three sections are animating hard, none of them land.</li>
+    <li><b>Scroll is the user's, not ours</b>No scroll-jacking, no forced pauses, no sections that trap the user until an animation finishes. Scrubbed animations follow the scroll; they never take it over.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Vocabulary</h2>
+  <h3>Named presets</h3>
+  <p>These names are the shared language between design and build. Specs below reference them by name only. Ali implements them once in <code>motion.js</code>; no raw easing string appears anywhere else in the codebase.</p>
+  <table>
+    <thead><tr><th>Name</th><th>Feel</th><th>Easing</th><th>Duration</th><th>Used for</th></tr></thead>
+    <tbody>
+      <tr><td class="name">Settle</td><td>Arrives with weight, stops clean</td><td class="mono">power2.out</td><td class="mono">0.6s</td><td>Default for almost everything</td></tr>
+      <tr><td class="name">Snap</td><td>Fast, precise, mechanical</td><td class="mono">power4.out</td><td class="mono">0.4s</td><td>Menus, filters, anything user-clicked</td></tr>
+      <tr><td class="name">Carry</td><td>Long steady travel</td><td class="mono">power1.inOut</td><td class="mono">1.2s</td><td>Large objects crossing the viewport</td></tr>
+      <tr><td class="name">Lift</td><td>Small rise into place</td><td class="mono">power2.out</td><td class="mono">0.5s</td><td>Text lines, cards, list items</td></tr>
+      <tr><td class="name">Flow</td><td>Viscous, continuous, looping</td><td class="mono">sine.inOut</td><td class="mono">5s loop</td><td>Route fill, tank levels, breathing states</td></tr>
+      <tr><td class="name">Hold</td><td>No easing, tied to scroll</td><td class="mono">none</td><td class="mono">scrub 1</td><td>Route draw, counters, pinned sequences</td></tr>
+    </tbody>
+  </table>
+  <h4>Config</h4>
+  <pre><span class="c">// motion.js — single source of truth</span>
+export const <span class="k">EASE</span> = {
+  settle: "power2.out",
+  snap:   "power4.out",
+  carry:  "power1.inOut",
+  lift:   "power2.out",
+  flow:   "sine.inOut",
+  hold:   "none"
+};
+
+export const <span class="k">DUR</span> = {
+  settle: 0.6, snap: 0.4, carry: 1.2, lift: 0.5, flow: 5
+};
+
+export const <span class="k">STAGGER</span> = 0.08;
+export const <span class="k">LIFT_Y</span> = 30;   <span class="c">// px, always from below</span>
+</pre>
+</section>
+
+<section>
+  <h2>Global rules</h2>
+  <h3>Applies to every page</h3>
+  <table>
+    <thead><tr><th>Rule</th><th>Value</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td class="name">Stagger</td><td class="mono">0.08s</td><td>Below 0.05s reads as one block; above 0.12s the last item feels late</td></tr>
+      <tr><td class="name">Max duration</td><td class="mono">1.2s</td><td>Unless scroll-scrubbed. Users scroll fast and will miss longer sequences</td></tr>
+      <tr><td class="name">Entrance offset</td><td class="mono">30px, from below</td><td>One direction sitewide. Mixed directions read as unplanned</td></tr>
+      <tr><td class="name">Trigger point</td><td class="mono">top 80%</td><td>Fires when the element is meaningfully in view, not at the very edge</td></tr>
+      <tr><td class="name">Replay</td><td class="mono">once only</td><td>No re-animating on scroll back. Repeat entrances feel unstable</td></tr>
+      <tr><td class="name">Hover transition</td><td class="mono">0.25s, Snap</td><td>Hover is feedback, not a performance</td></tr>
+      <tr><td class="name">Page transition</td><td class="mono">0.4s fade</td><td>Deliberately plain. Novelty here costs perceived speed</td></tr>
+    </tbody>
+  </table>
+  <h4>Non-negotiables</h4>
+  <p><strong>Reduced motion.</strong> Every timeline sits behind <code>gsap.matchMedia()</code> with a <code>prefers-reduced-motion: reduce</code> branch that sets final states instantly. This is an accessibility requirement, not a nice-to-have — vestibular disorders make scroll-linked motion genuinely unpleasant.</p>
+  <p><strong>No layout shift.</strong> Animate <code>transform</code> and <code>opacity</code> only. Never animate width, height, top, left or margin — they force layout recalculation on every frame and will drop the site below 60fps on mid-range Android, which is the majority of Pakistani mobile traffic.</p>
+  <p><strong>Mobile reduction.</strong> Below 768px: no scrub-pinned sequences, no parallax, the corridor map becomes a simplified static draw-on-enter. Entrance animations stay. Assume a three-year-old device on a 4G connection.</p>
+</section>
+
+<section>
+  <h2>Homepage</h2>
+  <h3>Beat sheet</h3>
+
+  <div class="beat">
+    <div class="beat-head"><span class="beat-num">00</span><span class="beat-name">Preloader</span></div>
+    <p>Dotted outline of Pakistan, centred, in muted steel. A counter runs 00 to 100 in mono, set below the map. As the counter climbs, dots along the corridor illuminate in sequence from Karachi northward — so the load itself traces the route.</p>
+    <p>At 100 the counter fades, the map scales up and settles into its hero position. It does not disappear and get replaced; it becomes the hero. That continuity is the whole point.</p>
+    <div class="spec">counter <span>Hold</span> tied to real load progress · dot illumination <span>Flow</span>, staggered 0.04s south to north · handoff <span>Carry</span><br>hard cap <span>2.5s</span> — if assets are not ready, proceed anyway and let the hero finish loading behind</div>
+  </div>
+
+  <div class="beat">
+    <div class="beat-head"><span class="beat-num">01</span><span class="beat-name">Hero — the live corridor</span></div>
+    <p>Map at rest with city nodes marked: Karachi, Hyderabad, Sukkur, Multan, Faisalabad, Lahore. Corridor routes carry a continuous viscous fill moving south to north — oil travelling the pipe. Secondary routes sit faint and static.</p>
+    <p>Headline and subhead lift in over the top, lines staggered. The map is the background but it is not decorative; it is the product.</p>
+    <div class="spec">route fill <span>Flow</span>, 5s loop, <code>stroke-dashoffset</code> along the path · nodes <span>Flow</span> at 6s offset per node so they never pulse in unison<br>headline lines <span>Lift</span>, stagger <span>0.08</span> · begins <span>0.3s</span> after preloader handoff</div>
+  </div>
+
+  <div class="beat">
+    <div class="beat-head"><span class="beat-num">02</span><span class="beat-name">Positioning statement</span></div>
+    <p>A single short paragraph on what the company does. No animation beyond a line-by-line lift. Deliberate quiet after the hero.</p>
+    <div class="spec">text <span>Lift</span>, stagger <span>0.08</span>, trigger <span>top 80%</span></div>
+  </div>
+
+  <div class="beat">
+    <div class="beat-head"><span class="beat-num">03</span><span class="beat-name">The journey — scrubbed sequence</span></div>
+    <p>The one pinned section on the site. As the user scrolls, the route draws from Port Qasim to the refinery gate, passing four labelled stages: discharge, shore tank, road transit, delivery. A tanker marker travels the drawn path. Stage labels cross-fade as the marker reaches each one.</p>
+    <p>This is where the concept pays off. Keep it to four stages and roughly two viewport heights of scroll — long enough to feel like a journey, short enough that nobody bails.</p>
+    <div class="spec">path draw <span>Hold</span>, <code>scrub: 1</code>, <code>drawSVG</code> 0 to 100% · marker on <code>motionPath</code>, same scrub<br>stage labels <span>Snap</span> cross-fade at path progress 0 / 0.33 / 0.66 / 1 · pin duration <span>200vh</span> · desktop only</div>
+  </div>
+
+  <div class="beat">
+    <div class="beat-head"><span class="beat-num">04</span><span class="beat-name">Services</span></div>
+    <p>Bulk liquid transport, contract carriage, port clearance, shore tank handling, last-mile delivery. Fill-based blocks rather than floating cards.</p>
+    <div class="spec">blocks <span>Lift</span>, stagger <span>0.08</span> · hover <span>Snap</span>, fill shift only — no scale, no shadow</div>
+  </div>
+
+  <div class="beat">
+    <div class="beat-head"><span class="beat-num">05</span><span class="beat-name">Contract carriage</span></div>
+    <p>The commercial heart of the site. Dedicated fleet, guaranteed capacity, fixed rates. Motion here should feel immovable — a slow reveal, nothing that darts. Consider a single slow tank-fill graphic representing committed capacity.</p>
+    <div class="spec">everything <span>Carry</span>, no stagger — this section arrives as one solid thing<br>fill graphic <span>Hold</span>, scrubbed, reaching full at section centre</div>
+  </div>
+
+  <div class="beat">
+    <div class="beat-head"><span class="beat-num">06</span><span class="beat-name">Operating numbers</span></div>
+    <p>Tonnage moved per month, fleet size, on-time percentage, years operating. Tabular figures, aligned.</p>
+    <div class="spec">count-up <span>Hold</span>, scrubbed to scroll position · labels <span>Lift</span><br>numbers land on their final value before the section leaves the viewport — never mid-count</div>
+  </div>
+
+  <div class="beat">
+    <div class="beat-head"><span class="beat-num">07</span><span class="beat-name">Clients and closing call</span></div>
+    <p>Client marks in a continuous marquee — this is the one correct use of linear easing on the entire site, because a loop that eases reveals its seam. Closing block returns to the corridor map, simplified, as a visual bookend.</p>
+    <div class="spec">marquee <code>ease: "none"</code>, continuous, pauses on hover · closing map <span>Carry</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Interior pages</h2>
+  <h3>Five supporting pages</h3>
+  <p>Interior pages inherit the vocabulary and add almost nothing. The homepage carries the concept; these carry the information.</p>
+  <table>
+    <thead><tr><th>Page</th><th>Signature moment</th><th>Everything else</th></tr></thead>
+    <tbody>
+      <tr><td class="name">About</td><td>Timeline of the company drawn as a short route segment</td><td>Lift, 0.08 stagger</td></tr>
+      <tr><td class="name">Services</td><td>None — pure information density</td><td>Lift only</td></tr>
+      <tr><td class="name">Network</td><td>Full corridor map, interactive: click a city for lanes and transit times</td><td>Snap on interaction</td></tr>
+      <tr><td class="name">Contract carriage</td><td>Capacity fill graphic, scrubbed</td><td>Carry, no stagger</td></tr>
+      <tr><td class="name">Contact</td><td>None. Forms do not need personality</td><td>Snap on field focus and validation</td></tr>
+    </tbody>
+  </table>
+  <div class="note">
+    <p><strong>Network page carries real commercial weight.</strong> A prospect checking whether the client serves their lane is a qualified lead. Make lane data genuinely useful — origin, destination, typical transit time, tanker type — rather than decorative. This page will likely outperform the homepage for conversion.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Budget</h2>
+  <h3>Performance targets</h3>
+  <table>
+    <thead><tr><th>Metric</th><th>Target</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td class="name">LCP</td><td class="mono">under 2.5s</td><td>Measured on 4G, mid-range Android</td></tr>
+      <tr><td class="name">Preloader</td><td class="mono">2.5s hard cap</td><td>Never gate on animation completion</td></tr>
+      <tr><td class="name">Frame rate</td><td class="mono">60fps sustained</td><td>Through the pinned sequence especially</td></tr>
+      <tr><td class="name">Map asset</td><td class="mono">under 120KB</td><td>Optimised inline SVG, not a raster</td></tr>
+      <tr><td class="name">Total JS</td><td class="mono">under 250KB gzipped</td><td>GSAP core plus only the plugins actually used</td></tr>
+      <tr><td class="name">CLS</td><td class="mono">under 0.1</td><td>Reserve space for every animated element up front</td></tr>
+    </tbody>
+  </table>
+  <p>The corridor map is the largest risk to all of these. Simplify the SVG paths aggressively before shipping — a traced highway network can easily carry tens of thousands of path points, and most of that detail is invisible at render size.</p>
+</section>
+
+<section>
+  <h2>Handoff</h2>
+  <h3>Before build starts</h3>
+  <ul class="check">
+    <li>Corridor confirmed with the client — which lanes they actually run, and relative volume by lane</li>
+    <li>City node list finalised, with any depot or shore tank locations they want shown</li>
+    <li>Real operating numbers supplied for the stats section, or the section is cut</li>
+    <li><code>motion.js</code> committed with the presets above before any animation is written</li>
+    <li>Reduced-motion branch built into the first animation, not retrofitted later</li>
+    <li>Motion reviewed on a real mid-range Android over mobile data, not a desktop throttle profile</li>
+  </ul>
+  <div class="note">
+    <p><strong>Open with the client before design lock.</strong> Whether the map should show competitor-visible detail about lanes and volumes. Some carriers treat their route mix as commercially sensitive. Ask before building the concept around it.</p>
+  </div>
+</section>
+
+<footer>
+  Motion specification v1 · draft for review · presets are the contract, beats are open to revision
+</footer>
+
+</div>
+</body>
+</html>
