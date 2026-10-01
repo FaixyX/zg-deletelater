@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import "lenis/dist/lenis.css";
 import "./lab.css";
 
 /* The design lab: throwaway direction pages, not part of the site. It is a
