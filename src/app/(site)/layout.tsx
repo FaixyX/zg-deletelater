@@ -15,7 +15,7 @@ import SmoothScroll from "@/components/SmoothScroll";
 import { SITE } from "@/lib/site";
 
 import "lenis/dist/lenis.css";
-import "./globals.css";
+import "../globals.css";
 
 /* The site's one face. Space Mono is cut in two weights only, so anything
    set between them resolves to one of these. */

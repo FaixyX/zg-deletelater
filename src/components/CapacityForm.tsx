@@ -5,7 +5,7 @@ import { gsap } from "gsap";
 import Link from "next/link";
 import { useActionState, useEffect, useRef } from "react";
 
-import { type Field, type RequestState, requestCapacity } from "@/app/contact/actions";
+import { type Field, type RequestState, requestCapacity } from "@/app/(site)/contact/actions";
 import { CARGO } from "@/lib/cargo";
 import { CONTACT, DUR, EASE, LIFT_Y, STAGGER, scrollToY, withMotion } from "@/lib/motion";
 
@@ -14,7 +14,7 @@ import CargoIcon from "./CargoIcon";
 /**
  * The capacity request, as a booking slip: the powder-blue plate of the
  * services page, riveted, in numbered sections -- cargo, lane, volume,
- * you. Submitted through a server action (app/contact/actions.ts), so it
+ * you. Submitted through a server action (app/(site)/contact/actions.ts), so it
  * works before the page's script has loaded and checks everything again
  * on the server.
  *

@@ -17,8 +17,8 @@ export const contentType = "image/png";
 
 export default async function OpengraphImage() {
   const [bold, regular, logo] = await Promise.all([
-    readFile(join(process.cwd(), "src/app/_og/space-mono-700.woff")),
-    readFile(join(process.cwd(), "src/app/_og/space-mono-400.woff")),
+    readFile(join(process.cwd(), "src/app/(site)/_og/space-mono-700.woff")),
+    readFile(join(process.cwd(), "src/app/(site)/_og/space-mono-400.woff")),
     readFile(join(process.cwd(), "public/zia-goods-logo.svg"), "utf8"),
   ]);
 
